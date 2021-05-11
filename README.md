@@ -2,7 +2,7 @@
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![GitHub release](https://img.shields.io/github/v/release/whitesource-ps/ws-bulk-report-generator)](https://github.com/whitesource-ps/ws-bulk-report-generator/releases/latest)
-# WhiteSource Bul Report Generator
+# WhiteSource Bulk Report Generator
 Tool to execute report on multiple projects.  
 * The tool allows including and excluding scopes by stating names and tokens.
 * Report scope determines whether reports will be run on projects or products.
