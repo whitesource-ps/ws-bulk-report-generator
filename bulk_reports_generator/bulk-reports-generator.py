@@ -23,10 +23,11 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Bulk Reports Generator')
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', required=True)
-    parser.add_argument('-k', '--token', help="WS Organization Key", dest='ws_token', required=True)
+    parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', required=True)
     parser.add_argument('-r', '--report', help="Report Type to produce", choices=ws_utilities.get_report_types(), dest='report', required=True)
     parser.add_argument('-s', '--ReportScope', help="Scope of report", choices=[ws_constants.PROJECT, ws_constants.PRODUCT], dest='scope', default=ws_constants.PROJECT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', default="saas")
+    parser.add_argument('-o', '--reportDir', help="Report Dir", dest='dir', default="reports")
     parser.add_argument('-c', '--config', help="Location of configuration file", dest='config', default='config.json')
 
     return parser.parse_args()
@@ -48,6 +49,10 @@ def init():
         report_method = getattr(WS, report_method)
     except AttributeError:
         logging.error(f"report: {args.report} was not found")
+
+    if not os.path.exists(args.dir):
+        logging.info(f" Creating directory: {args.dir}")
+        os.makedirs(args.dir)
 
 
 def get_report_scopes(conf_dict: dict) -> list:
@@ -77,6 +82,7 @@ def get_report_scopes(conf_dict: dict) -> list:
             logging.debug("No tokens were passed")
 
         return ret_tokens
+
     inc_tokens = conf_dict.get('IncludedTokens')
     exc_tokens = conf_dict.get('ExcludedTokens')
 
@@ -106,7 +112,7 @@ def get_report_scopes(conf_dict: dict) -> list:
         for token in total_tokens:
             scope = ws_conn.get_scope_by_token(token=token)
             filename = f"{scope['type']}_{scope['name']}_{args.report}.{report_method(ws_constants.ReportsData.REPORT_BIN_TYPE)}"
-            scope['report_full_name'] = os.path.join(conf['ReportsDir'], filename)
+            scope['report_full_name'] = os.path.join(args.dir, filename)
             scopes.append(scope)
 
     return scopes
