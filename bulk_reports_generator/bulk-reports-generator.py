@@ -23,7 +23,7 @@ def parse_args():
     import argparse
     parser = argparse.ArgumentParser(description='Bulk Reports Generator')
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', required=True)
-    parser.add_argument('-k', '--token', help="WS Organization Key", dest='ws_token', required=True)
+    parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', required=True)
     parser.add_argument('-r', '--report', help="Report Type to produce", choices=ws_utilities.get_report_types(), dest='report', required=True)
     parser.add_argument('-s', '--ReportScope', help="Scope of report", choices=[ws_constants.PROJECT, ws_constants.PRODUCT], dest='scope', default=ws_constants.PROJECT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', default="saas")
