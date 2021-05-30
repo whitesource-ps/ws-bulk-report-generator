@@ -1,6 +1,6 @@
 ![Logo](https://whitesource-resources.s3.amazonaws.com/ws-sig-images/Whitesource_Logo_178x44.png)  
-
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
+[![CI](https://github.com/whitesource-ps/ws-bulk-report-generator/actions/workflows/ci-master.yml/badge.svg)](https://github.com/whitesource-ps/ws-bulk-report-generator/actions/workflows/ci-master.yml)
 [![GitHub release](https://img.shields.io/github/v/release/whitesource-ps/ws-bulk-report-generator)](https://github.com/whitesource-ps/ws-bulk-report-generator/releases/latest)
 # WhiteSource Bulk Report Generator
 Tool to execute a report on multiple projects.
@@ -25,20 +25,22 @@ python bulk_reports_generator.py -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -
 ## Full Usage:
 ```shell
 bulk-reports-generator.py [-h] -u WS_USER_KEY -k WS_TOKEN -r
-                                 {alerts,inventory,attributes,vulnerability,resolved_alerts,effective_licenses,in_house,due_diligence,library_location,risk,attribution,license_compatibility,request_history,ignored_alerts,bugs,contai
-ner_vulnerability,source_file_inventory,in_house_libraries,source_files}
+                                 {library_location,inventory,alerts,source_file_inventory,risk,attributes,in_house_libraries,bugs,license_compatibility,vulnerability,effective_licenses,attribution,due_diligence,source_files
+,resolved_alerts,container_vulnerability,in_house,request_history,ignored_alerts}
                                  [-s {project,product}] [-a WS_URL] [-o DIR]
-                                 [-c CONFIG]
+                                 [-t {binary,json}] [-c CONFIG]
+
 Bulk Reports Generator
+
 optional arguments:
   -h, --help            show this help message and exit
   -u WS_USER_KEY, --userKey WS_USER_KEY
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
                         WS Token
-  -r {alerts,inventory,attributes,vulnerability,resolved_alerts,effective_licenses,in_house,due_diligence,library_location,risk,attribution,license_compatibility,request_history,ignored_alerts,bugs,container_vulnerability,source_file_inventory,in_house_libraries,sou
-rce_files}, --report {alerts,inventory,attributes,vulnerability,resolved_alerts,effective_licenses,in_house,due_diligence,library_location,risk,attribution,license_compatibility,request_history,ignored_alerts,bugs,container_vulnerability,source_file_inventory,in_hou
-se_libraries,source_files}
+  -r {library_location,inventory,alerts,source_file_inventory,risk,attributes,in_house_libraries,bugs,license_compatibility,vulnerability,effective_licenses,attribution,due_diligence,source_files,resolved_alerts,container_v
+ulnerability,in_house,request_history,ignored_alerts}, --report {library_location,inventory,alerts,source_file_inventory,risk,attributes,in_house_libraries,bugs,license_compatibility,vulnerability,effective_licenses,attribu
+tion,due_diligence,source_files,resolved_alerts,container_vulnerability,in_house,request_history,ignored_alerts}
                         Report Type to produce
   -s {project,product}, --ReportScope {project,product}
                         Scope of report
@@ -46,6 +48,8 @@ se_libraries,source_files}
                         WS URL
   -o DIR, --reportDir DIR
                         Report Dir
+  -t {binary,json}, --outputType {binary,json}
+                        Type of output
   -c CONFIG, --config CONFIG
                         Location of configuration file
 ```

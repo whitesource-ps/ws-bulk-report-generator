@@ -16,7 +16,7 @@ logging.getLogger('urllib3').setLevel(logging.INFO)
 logging.getLogger('chardet').setLevel(logging.INFO)
 
 PROJECT_PARALLELISM_LEVEL = 10
-ws_conn = conf = report_method = None
+ws_conn = conf = report_method = is_binary = write_mode = None
 
 
 def parse_args():
@@ -28,13 +28,14 @@ def parse_args():
     parser.add_argument('-s', '--ReportScope', help="Scope of report", choices=[ws_constants.PROJECT, ws_constants.PRODUCT], dest='scope', default=ws_constants.PROJECT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', default="saas")
     parser.add_argument('-o', '--reportDir', help="Report Dir", dest='dir', default="reports")
+    parser.add_argument('-t', '--outputType', help="Type of output", choices=["binary", "json"], dest='output_type', default="binary")
     parser.add_argument('-c', '--config', help="Location of configuration file", dest='config', default='config.json')
 
     return parser.parse_args()
 
 
 def init():
-    global ws_conn, conf, report_method
+    global ws_conn, conf, report_method, is_binary, write_mode
     ws_conn = WS(url=args.ws_url, user_key=args.ws_user_key, token=args.ws_token)
     try:
         fp = open(args.config).read()
@@ -53,6 +54,9 @@ def init():
     if not os.path.exists(args.dir):
         logging.info(f" Creating directory: {args.dir}")
         os.makedirs(args.dir)
+
+    is_binary = True if args.output_type == "binary" else False
+    write_mode = 'bw' if is_binary else 'w'
 
 
 def get_report_scopes(conf_dict: dict) -> list:
@@ -126,8 +130,9 @@ def generate_reports_manager(reports_desc_list: list):
 def worker_generate_report(report_desc, ws_connector):
     try:
         logging.debug(f"Running {args.report} report on {report_desc['type']}: {report_desc['name']}. location: {report_desc['report_full_name']}")
-        report = report_method(ws_connector, token=report_desc['token'], report=True)
-        f = open(report_desc['report_full_name'], 'bw')
+        output = report_method(ws_connector, token=report_desc['token'], report=is_binary)
+        f = open(report_desc['report_full_name'], write_mode)
+        report = output if is_binary else json.dumps(output)
         f.write(report)
         f.close()
     except ws_errors.WsSdkError or OSError:
