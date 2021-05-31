@@ -7,6 +7,7 @@ Tool to execute a report on multiple projects.
 * The tool allows including and excluding scopes by stating names and tokens.
 * Report scope determines whether reports will be run on projects or products.
 * If Included scopes is not stated, the tool will run reports on **all** of scopes.
+* Report data is exported by default in binary (i.e. Excel or PDF) format or JSON.
 
 ## Supported Operating Systems
 - **Linux (Bash):**	CentOS, Debian, Ubuntu, RedHat
