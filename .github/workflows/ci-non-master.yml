@@ -32,3 +32,4 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Full Test
         run: python bulk_reports_generator/bulk-reports-generator.py -c bulk_reports_generator/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
+
