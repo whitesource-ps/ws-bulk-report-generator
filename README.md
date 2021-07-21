@@ -17,9 +17,10 @@ Tool to execute a report on multiple projects.
 * Python 3.6+
 
 ## Installation and Execution:
-1. Download the latest release 
-2. Edit `config.json` file with desired parameters  
-3. Run the tool:
+1. Download the latest release
+1. Install Python dependencies: `pip install -r requirements.txt` 
+1. Edit `config.json` file with desired parameters  
+1. Run the tool:
 ```shell
 python bulk_reports_generator.py -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>  
 ```
