@@ -6,7 +6,6 @@ from multiprocessing.pool import ThreadPool
 
 from ws_sdk import WS, ws_constants, ws_errors, ws_utilities
 
-
 logging.basicConfig(level=logging.INFO,
                     # format='%(levelname)s %(asctime)s %(thread)d: %(message)s',
                     stream=sys.stdout
@@ -17,6 +16,8 @@ logging.getLogger('chardet').setLevel(logging.INFO)
 
 PROJECT_PARALLELISM_LEVEL = 10
 ws_conn = conf = report_method = is_binary = write_mode = None
+JSON = 'json'
+BINARY = 'binary'
 
 
 def parse_args():
@@ -28,7 +29,7 @@ def parse_args():
     parser.add_argument('-s', '--ReportScope', help="Scope of report", choices=[ws_constants.PROJECT, ws_constants.PRODUCT], dest='scope', default=ws_constants.PROJECT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', default="saas")
     parser.add_argument('-o', '--reportDir', help="Report Dir", dest='dir', default="reports")
-    parser.add_argument('-t', '--outputType', help="Type of output", choices=["binary", "json"], dest='output_type', default="binary")
+    parser.add_argument('-t', '--outputType', help="Type of output", choices=[BINARY, JSON], dest='output_type', default=BINARY)
     parser.add_argument('-c', '--config', help="Location of configuration file", dest='config', default='config.json')
 
     return parser.parse_args()
@@ -55,7 +56,7 @@ def init():
         logging.info(f" Creating directory: {args.dir}")
         os.makedirs(args.dir)
 
-    is_binary = True if args.output_type == "binary" else False
+    is_binary = True if args.output_type == BINARY else False
     write_mode = 'bw' if is_binary else 'w'
 
 
@@ -77,7 +78,7 @@ def get_report_scopes(conf_dict: dict) -> list:
                         logging.warning(f"Token: {tok} is not of report scope type: {args.scope} and will be skipped")
                 except ws_errors.WsSdkError:
                     logging.warning(f"Token: {tok} does not exist and will be skipped")
-        elif get_all_scope:                                                                # If no value in inc tokens then take all
+        elif get_all_scope:  # If no value in inc tokens then take all
             logging.info(f"Getting all tokens of {args.scope}s of the organization")
             prod_scopes = ws_conn.get_scopes(scope_type=args.scope)
             for s in prod_scopes:
@@ -99,7 +100,7 @@ def get_report_scopes(conf_dict: dict) -> list:
         exc_tokens.extend(ws_conn.get_tokens_from_name(name))
 
     # Subtracting tokens from same scope type
-    int_tokens = [t for t in inc_tokens if t in exc_tokens]      # Collecting intersected tokens
+    int_tokens = [t for t in inc_tokens if t in exc_tokens]  # Collecting intersected tokens
     inc_tokens = [t for t in inc_tokens if t not in int_tokens]
     exc_tokens = [t for t in exc_tokens if t not in int_tokens]
     logging.debug(f"Shallow filter: removed {len(int_tokens)} from scopes")
@@ -115,7 +116,8 @@ def get_report_scopes(conf_dict: dict) -> list:
         logging.info(f"Found {len(total_tokens)} tokens to generate reports")
         for token in total_tokens:
             scope = ws_conn.get_scope_by_token(token=token)
-            filename = f"{scope['type']}_{scope['name']}_{args.report}.{report_method(ws_constants.ReportsData.REPORT_BIN_TYPE)}"
+            report_extension = JSON if args.output_type == JSON else report_method(ws_constants.ReportsData.REPORT_BIN_TYPE)
+            filename = f"{scope['type']}_{scope['name']}_{args.report}.{report_extension}"
             scope['report_full_name'] = os.path.join(args.dir, filename)
             scopes.append(scope)
 
