@@ -18,7 +18,7 @@ PROJECT_PARALLELISM_LEVEL = 10
 ws_conn = conf = report_method = is_binary = write_mode = None
 JSON = 'json'
 BINARY = 'binary'
-AGENT_NAME = "bulk-reports-generator"
+AGENT_NAME = "ps-bulk-reports-generator"
 AGENT_VERSION = "0.1.3"
 
 
