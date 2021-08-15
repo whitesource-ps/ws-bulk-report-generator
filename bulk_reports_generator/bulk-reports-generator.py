@@ -18,8 +18,8 @@ PROJECT_PARALLELISM_LEVEL = 10
 ws_conn = conf = report_method = is_binary = write_mode = None
 JSON = 'json'
 BINARY = 'binary'
-agent_name = "bulk-reports-generator"
-agent_version = "0.1.3"
+AGENT_NAME = "bulk-reports-generator"
+AGENT_VERSION = "0.1.3"
 
 
 def parse_args():
@@ -39,7 +39,7 @@ def parse_args():
 
 def init():
     global ws_conn, conf, report_method, is_binary, write_mode
-    ws_conn = WS(url=args.ws_url, user_key=args.ws_user_key, token=args.ws_token, tool_details=(agent_name, agent_version))
+    ws_conn = WS(url=args.ws_url, user_key=args.ws_user_key, token=args.ws_token, tool_details=(AGENT_NAME, AGENT_VERSION))
     try:
         fp = open(args.config).read()
         conf = json.loads(fp)
