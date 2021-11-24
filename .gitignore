@@ -19,5 +19,11 @@ target/
 
 # Excluded Files - Naming Convention
 local-env.*
-/bulk_reports_generator/conf/
+/ws_bulk_reports_generator/conf/
 /venv/
+/ws_bulk_reports_generator/reports/
+/dist/
+/ws_bulk_report_generator.egg-info/
+/reports/
+/build/
+/ws_bulk_report_generator/reports/
