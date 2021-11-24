@@ -18,13 +18,12 @@ jobs:
     steps:
       - name: Set Environment Variables
         run: |
+          echo "RELEASE=false" >> $GITHUB_ENV
           echo "TOOL_DIR=ws_$TOOL_NAME" >> $GITHUB_ENV
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
+          if [[ $GITHUB_REF == refs/tags/v* ]]; then
             echo "VERSION=$(echo ${{github.ref}} |  sed -r 's/^[\/a-zA-z-]+//')" >> $GITHUB_ENV
-            if [[ $VERSION == *@(a|b)* ]]; then
-              RELEASE=0 >> $GITHUB_ENV
-            else:
-              RELEASE=1 >> $GITHUB_ENV
+            if [[ $VERSION != *@(a|b)* ]]; then
+              echo "RELEASE=true" >> $GITHUB_ENV
             fi
           else
             echo "VERSION=0.0.0_ci0" >> $GITHUB_ENV
@@ -85,7 +84,7 @@ jobs:
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
       - name: confluence-markdown-sync - PS documentation
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.RELEASE == 'true' }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
@@ -94,7 +93,7 @@ jobs:
           user: ${{ secrets.CONFLUENCE_USER }}
           token: ${{ secrets.CONFLUENCE_TOKEN }}
       - name: confluence-markdown-sync - Public Community
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: ${{ env.RELEASE == 'true' }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
