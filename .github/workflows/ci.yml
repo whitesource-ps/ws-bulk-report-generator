@@ -11,7 +11,7 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     env:
-      TOOL_NAME: bulk_report_generator
+      TOOL_NAME: ws_bulk_report_generator
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
@@ -19,14 +19,13 @@ jobs:
       - name: Set Environment Variables
         run: |
           echo "RELEASE=false" >> $GITHUB_ENV
-          echo "TOOL_DIR=ws_$TOOL_NAME" >> $GITHUB_ENV
+          echo "VERSION=0.0.0.ci0" >> $GITHUB_ENV
+          echo "TOOL_DIR=$TOOL_NAME" >> $GITHUB_ENV
           if [[ $GITHUB_REF == refs/tags/v* ]]; then
             echo "VERSION=$(echo ${{github.ref}} |  sed -r 's/^[\/a-zA-z-]+//')" >> $GITHUB_ENV
             if [[ $VERSION != *@(a|b)* ]]; then
               echo "RELEASE=true" >> $GITHUB_ENV
             fi
-          else
-            echo "VERSION=0.0.0_ci0" >> $GITHUB_ENV
           fi
       - uses: actions/checkout@v2
       - uses: UnicornGlobal/trufflehog-actions-scan@master
@@ -52,12 +51,12 @@ jobs:
       - name: Install package
         run: pip install dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
       - name: Full Test
-        run: bulk_report_generator -c bulk_reports_generator/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
+        run: ${{ env.TOOL_NAME }} -c ${{ env.TOOL_DIR }}/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
       - name: Zip release
         uses: papeloto/action-zip@v1
         with:
           files: requirements.txt LICENSE README.md CLA.md ${{ env.TOOL_DIR }}/
-          dest: ws_$TOOL_NAME.zip
+          dest: ${{ env.TOOL_NAME }}.zip
           recursive: true
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
@@ -66,6 +65,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           allowUpdates: true
           artifacts: "*.zip"
+          prerelease: ${{ env.RELEASE != true }}
       - name: Publish to Test PyPI
         if: startsWith(github.ref, 'refs/tags/test-v')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -84,7 +84,7 @@ jobs:
           password: ${{ secrets.PYPI_API_TOKEN }}
           verbose: true
       - name: confluence-markdown-sync - PS documentation
-        if: ${{ env.RELEASE == 'true' }}
+        if: ${{ env.RELEASE == true }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
@@ -93,7 +93,7 @@ jobs:
           user: ${{ secrets.CONFLUENCE_USER }}
           token: ${{ secrets.CONFLUENCE_TOKEN }}
       - name: confluence-markdown-sync - Public Community
-        if: ${{ env.RELEASE == 'true' }}
+        if: ${{ env.RELEASE == true }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
