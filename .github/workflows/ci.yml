@@ -1,4 +1,4 @@
-name: WS SBOM Generator
+name: WS Bulk Report Generator
 on:
   push:
     branches:
