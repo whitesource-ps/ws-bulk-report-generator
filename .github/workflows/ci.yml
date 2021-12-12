@@ -1,4 +1,4 @@
-name: WS SBOM Generator
+name: WS Bulk Report Generator
 on:
   push:
     branches:
@@ -31,6 +31,7 @@ jobs:
       - name: Set package version
         run: |
           sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
+          sed -E  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
       - uses: UnicornGlobal/trufflehog-actions-scan@master
         with:
           branch: ${{ github.head_ref }}
@@ -55,19 +56,13 @@ jobs:
         run: ls -1 dist/*.whl | xargs pip install
       - name: Full Test
         run: ${{ env.TOOL_NAME }} -c ${{ env.TOOL_DIR }}/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
-      - name: Zip release
-        uses: papeloto/action-zip@v1
-        with:
-          files: requirements.txt LICENSE README.md CLA.md ${{ env.TOOL_DIR }}/
-          dest: ${{ env.TOOL_NAME }}-${{ env.VERSION }}.zip
-          recursive: false
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
           allowUpdates: true
-          artifacts: "*.zip"
+          token: ${{ secrets.GITHUB_TOKEN }}
           prerelease: ${{ env.RELEASE != true }}
       - name: Publish to Test PyPI
         if: startsWith(github.ref, 'refs/tags/test-v')
@@ -77,7 +72,6 @@ jobs:
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
           repository_url: https://test.pypi.org/legacy/
-          verbose: true
       - name: Publish to PyPI
         if: startsWith(github.ref, 'refs/tags/v')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -85,8 +79,7 @@ jobs:
           skip_existing: true
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          verbose: true
-      - name: confluence-markdown-sync - PS documentation
+      - name: Publish to Confluence - Internal
         if: ${{ env.RELEASE == true }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
@@ -95,8 +88,8 @@ jobs:
           cloud: whitesource
           user: ${{ secrets.CONFLUENCE_USER }}
           token: ${{ secrets.CONFLUENCE_TOKEN }}
-      - name: confluence-markdown-sync - Public Community
-        if: ${{ env.RELEASE == true }}
+      - name: Publish to Confluence - Public
+        if: ${{ env.RELEASE == 'true' }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
