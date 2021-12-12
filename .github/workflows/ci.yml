@@ -6,7 +6,7 @@ on:
     tags:
       - '*'
   schedule:
-    - cron: '0 4 * * 6'
+    - cron: '0 4 * * *'
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
@@ -28,6 +28,9 @@ jobs:
             fi
           fi
       - uses: actions/checkout@v2
+      - name: Set package version
+        run: |
+          sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
       - uses: UnicornGlobal/trufflehog-actions-scan@master
         with:
           branch: ${{ github.head_ref }}
@@ -48,16 +51,16 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Create Wheel Package
         run: python setup.py bdist_wheel
-      - name: Install package
-        run: pip install dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
+      - name: Install Wheel package
+        run: ls -1 dist/*.whl | xargs pip install
       - name: Full Test
         run: ${{ env.TOOL_NAME }} -c ${{ env.TOOL_DIR }}/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
       - name: Zip release
         uses: papeloto/action-zip@v1
         with:
           files: requirements.txt LICENSE README.md CLA.md ${{ env.TOOL_DIR }}/
-          dest: ${{ env.TOOL_NAME }}.zip
-          recursive: true
+          dest: ${{ env.TOOL_NAME }}-${{ env.VERSION }}.zip
+          recursive: false
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
