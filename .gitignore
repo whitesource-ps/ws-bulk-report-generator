@@ -27,3 +27,4 @@ local-env.*
 /reports/
 /build/
 /ws_bulk_report_generator/reports/
+/build/
