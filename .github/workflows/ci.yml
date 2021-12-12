@@ -6,7 +6,7 @@ on:
     tags:
       - '*'
   schedule:
-    - cron: '0 4 * * 6'
+    - cron: '0 4 * * *'
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
@@ -28,6 +28,9 @@ jobs:
             fi
           fi
       - uses: actions/checkout@v2
+      - name: Set package version
+        run: |
+          sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
       - uses: UnicornGlobal/trufflehog-actions-scan@master
         with:
           branch: ${{ github.head_ref }}
@@ -56,8 +59,8 @@ jobs:
         uses: papeloto/action-zip@v1
         with:
           files: requirements.txt LICENSE README.md CLA.md ${{ env.TOOL_DIR }}/
-          dest: ${{ env.TOOL_NAME }}.zip
-          recursive: true
+          dest: ${{ env.TOOL_NAME }}-${{ env.VERSION }}.zip
+          recursive: false
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
