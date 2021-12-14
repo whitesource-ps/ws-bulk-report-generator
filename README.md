@@ -19,7 +19,7 @@ Tool to execute a report on multiple projects.
 
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
-2. Run report: `bulk-report-generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
+2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
 
 ## Installation and Execution by downloading project code from GitHub:
 1. Download the latest release
