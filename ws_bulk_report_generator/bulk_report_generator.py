@@ -132,7 +132,8 @@ def get_report_scopes() -> list:
         for token in total_tokens:
             scope = ws_conn.get_scope_by_token(token=token)
             report_extension = JSON if args.output_type == JSON else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
-            filename = f"{scope['type']}_{replace_invalid_chars(scope['name'])}_{args.report}.{report_extension}"
+            report_name = f"{scope['name']}_{scope['productName']}" if scope['type'] == ws_constants.PROJECT else scope['name']
+            filename = f"{scope['type']}_{replace_invalid_chars(report_name)}_{args.report}.{report_extension}"
             scope['report_full_name'] = os.path.join(args.dir, filename)
             scopes.append(scope)
 
