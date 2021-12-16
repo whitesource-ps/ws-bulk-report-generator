@@ -12,11 +12,10 @@ from ws_bulk_report_generator._version import __tool_name__, __version__
 logging.basicConfig(level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO,
                     format='%(levelname)s %(asctime)s %(thread)d %(name)s: %(message)s',
                     stream=sys.stdout)
-logging.getLogger('urllib3').setLevel(logging.WARNING)
 logger = logging.getLogger(__tool_name__)
 
 
-PROJECT_PARALLELISM_LEVEL = 10
+PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
 JSON = 'json'
 BINARY = 'binary'
@@ -231,8 +230,9 @@ def write_file(output: list):
         generate_xlsx(output, full_path)
     else:
         with open(full_path, args.write_mode) as fp:
-            logger.info(f"Writing filename: '{full_path}'")
             fp.write(json.dumps(output))
+
+    logger.info(f"Finished writing filename: '{full_path}'")
 
 
 def main():
