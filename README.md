@@ -24,13 +24,16 @@ Tool to execute a report on multiple projects.
 ## Examples:
 ```shell
 # Generate Inventory Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
-ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r inventory -t json 
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
 
 # Generate Risk Reports (PDF format) on all products (file per product) within organization:
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -s product -r risk  
 
 # Search for 3 log4j recent vulnerabilities in all the organization and get output in a single JSON:
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
+
+# Execute inventory report and get a unified JSON on all the organization: 
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json
 ```
 
 ## Full Usage:
