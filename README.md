@@ -7,7 +7,7 @@
 Tool to execute a report on multiple projects.
 * The tool allows including and excluding scopes by stating names and tokens.
 * Report scope determines whether reports will be run on projects or products.
-* If Included scopes is not stated, the tool will run reports on **all** of scopes.
+* If Included scopes is not stated (_via -i/--includedTokens_), the tool will run reports on **all** scopes within (i.e. if _--token/-k_ is organization than on all the organization).
 * Report data is exported by default in binary (i.e. Excel or PDF) format or JSON.
 
 ## Supported Operating Systems
@@ -19,16 +19,9 @@ Tool to execute a report on multiple projects.
 
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
-2. Run report: `bulk-report-generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
+   * **Note**:  If installing packages as a non-root be sure to include the path to the executables within the Operating System paths.  
+2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
 
-## Installation and Execution by downloading project code from GitHub:
-1. Download the latest release
-1. Install Python dependencies: `pip install -r requirements.txt` 
-1. Edit `config.json` file with desired parameters  
-1. Run the tool:
-```shell
-python bulk_reports_generator.py -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>  
-```
 ## Full Usage:
 ```shell
 > bulk_report_generator -h

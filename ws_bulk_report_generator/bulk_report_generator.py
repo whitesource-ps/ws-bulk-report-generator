@@ -4,13 +4,15 @@ import os
 import sys
 from multiprocessing.pool import ThreadPool
 
-from ws_sdk import WS, ws_constants, ws_errors, ws_utilities
+from ws_sdk import WS, ws_constants, ws_errors
+from ws_bulk_report_generator._version import __tool_name__, __version__
 
-logging.basicConfig(level=logging.INFO,
-                    # format='%(levelname)s %(asctime)s %(thread)d: %(message)s',
+logging.basicConfig(level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO,
+                    format='%(levelname)s %(asctime)s %(thread)d %(name)s: %(message)s',
                     stream=sys.stdout
                     )
-from ws_bulk_report_generator._version import __tool_name__, __version__
+logger = logging.getLogger(__tool_name__)
+
 
 PROJECT_PARALLELISM_LEVEL = 10
 ws_conn = conf = args = None
@@ -43,7 +45,7 @@ def init():
     ws_conn = WS(url=args.ws_url,
                  user_key=args.ws_user_key,
                  token=args.ws_token,
-                 tool_details=(f"ps-{__tool_name__.replace('_','-')}", __version__))
+                 tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__))
 
     try:
         fp = open(args.config).read()
@@ -53,18 +55,18 @@ def init():
         args.inc_names = conf.get('IncludedNames')
         args.exc_names = conf.get('ExcludedNames')
     except FileNotFoundError:
-        logging.warning(f"Configuration file: {args.config} was not found")
+        logger.warning(f"Configuration file: {args.config} was not found")
     except json.JSONDecodeError:
-        logging.error(f"Unable to parse file: {args.config}")
+        logger.error(f"Unable to parse file: {args.config}")
 
     args.report_method = f"get_{args.report}"
     try:
         args.report_method = getattr(WS, args.report_method)
     except AttributeError:
-        logging.error(f"report: {args.report} was not found")
+        logger.error(f"report: {args.report} was not found")
 
     if not os.path.exists(args.dir):
-        logging.info(f" Creating directory: {args.dir}")
+        logger.info(f" Creating directory: {args.dir}")
         os.makedirs(args.dir)
 
     args.is_binary = True if args.output_type == BINARY else False
@@ -81,23 +83,29 @@ def get_report_scopes() -> list:
                     if tmp_scope['type'] == args.scope:
                         ret_tokens.append(tok)
                     elif tmp_scope['type'] == ws_constants.ScopeTypes.PRODUCT and args.scope == ws_constants.ScopeTypes.PROJECT:  # Extract projects from products
-                        logging.debug(f"Token: {tok} is of product {tmp_scope['name']}. Adding its projects into scope")
+                        logger.debug(f"Token: {tok} is of product {tmp_scope['name']}. Adding its projects into scope")
                         prod_scopes = (ws_conn.get_projects(product_token=tok))
                         for s in prod_scopes:
                             ret_tokens.append(s['token'])
                     else:
-                        logging.warning(f"Token: {tok} is not of report scope type: {args.scope} and will be skipped")
+                        logger.warning(f"Token: {tok} is not of report scope type: {args.scope} and will be skipped")
                 except ws_errors.WsSdkError:
-                    logging.warning(f"Token: {tok} does not exist and will be skipped")
+                    logger.warning(f"Token: {tok} does not exist and will be skipped")
         elif get_all_scope:  # If no value in inc tokens then take all
-            logging.info(f"Getting all tokens of {args.scope}s of the organization")
+            logger.info(f"Getting all tokens of {args.scope}s of the organization")
             prod_scopes = ws_conn.get_scopes(scope_type=args.scope)
             for s in prod_scopes:
                 ret_tokens.append(s['token'])
         else:
-            logging.debug("No tokens were passed")
+            logger.debug("No tokens were passed")
 
         return ret_tokens
+
+    def replace_invalid_chars(directory: str) -> str:
+        for char in ws_constants.INVALID_FS_CHARS:
+            directory = directory.replace(char, "_")
+
+        return directory
 
     global args
     for name in args.inc_names:
@@ -110,21 +118,22 @@ def get_report_scopes() -> list:
     args.int_tokens = [t for t in args.inc_tokens if t in args.exc_tokens]  # Collecting intersected tokens
     args.inc_tokens = [t for t in args.inc_tokens if t not in args.int_tokens]
     args.exc_tokens = [t for t in args.exc_tokens if t not in args.int_tokens]
-    logging.debug(f"Shallow filter: removed {len(args.int_tokens)} from scopes")
+    logger.debug(f"Shallow filter: removed {len(args.int_tokens)} from scopes")
     inc_tokens = __get_report_tokens__(args.inc_tokens, True)
     exc_tokens = __get_report_tokens__(args.exc_tokens, False)
     total_tokens = [t for t in inc_tokens if t not in exc_tokens]
-    logging.debug(f"Deep filter: removed {len(inc_tokens) - len(total_tokens)}  from scopes")
+    logger.debug(f"Deep filter: removed {len(inc_tokens) - len(total_tokens)}  from scopes")
 
     scopes = []
     if not total_tokens:
-        logging.error("No scopes were found to generate reports. Please check configuration")
+        logger.error("No scopes were found to generate reports. Please check configuration")
     else:
-        logging.info(f"Found {len(total_tokens)} tokens to generate reports")
+        logger.info(f"Found {len(total_tokens)} tokens to generate reports")
         for token in total_tokens:
             scope = ws_conn.get_scope_by_token(token=token)
             report_extension = JSON if args.output_type == JSON else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
-            filename = f"{scope['type']}_{scope['name']}_{args.report}.{report_extension}"
+            report_name = f"{scope['name']}_{scope['productName']}" if scope['type'] == ws_constants.PROJECT else scope['name']
+            filename = f"{scope['type']}_{replace_invalid_chars(report_name)}_{args.report}.{report_extension}"
             scope['report_full_name'] = os.path.join(args.dir, filename)
             scopes.append(scope)
 
@@ -138,14 +147,14 @@ def generate_reports_manager(reports_desc_list: list):
 
 def worker_generate_report(report_desc, ws_connector):
     try:
-        logging.debug(f"Running {args.report} report on {report_desc['type']}: {report_desc['name']}. location: {report_desc['report_full_name']}")
+        logger.debug(f"Running {args.report} report on {report_desc['type']}: {report_desc['name']}. location: {report_desc['report_full_name']}")
         output = args.report_method(ws_connector, token=report_desc['token'], report=args.is_binary)
         f = open(report_desc['report_full_name'], args.write_mode)
         report = output if args.is_binary else json.dumps(output)
         f.write(report)
         f.close()
     except ws_errors.WsSdkError or OSError:
-        logging.exception("Error producing report")
+        logger.exception("Error producing report")
 
 
 def main():
