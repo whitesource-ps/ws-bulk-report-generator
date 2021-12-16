@@ -8,6 +8,7 @@ Tool to execute a report on multiple projects.
 * The tool allows including and excluding scopes by stating names and tokens.
 * Report scope determines whether reports will be run on projects or products.
 * If Included scopes is not stated (_via -i/--includedTokens_), the tool will run reports on **all** scopes within (i.e. if _--token/-k_ is organization than on all the organization).
+* If WhiteSource URL is not stated (_via -a/--wsURL_), the tool will default to `saas`. To change this, use the subdomain of your instance only (i.e. _app_ for _app.whitesource.com_)
 * Report data is exported by default in binary (i.e. Excel or PDF) format or JSON.
 
 ## Supported Operating Systems
