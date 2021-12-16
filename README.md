@@ -19,25 +19,28 @@ Tool to execute a report on multiple projects.
 
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
-2. Run report: `bulk-report-generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
+2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
 
-## Installation and Execution by downloading project code from GitHub:
-1. Download the latest release
-1. Install Python dependencies: `pip install -r requirements.txt` 
-1. Edit `config.json` file with desired parameters  
-1. Run the tool:
+## Examples:
 ```shell
-python bulk_reports_generator.py -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>  
+# Generate Inventory Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r inventory -t json 
+
+# Generate Risk Reports (PDF format) on all products (file per product) within organization:
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -s product -r risk  
+
+# Search for 3 log4j recent vulnerabilities in all the organization and get output in a single JSON:
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
 ```
+
 ## Full Usage:
 ```shell
-> bulk_report_generator -h
-usage: bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN -r
-                             {alerts,ignored_alerts,resolved_alerts,inventory,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effect
-ive_licenses,bugs,request_history}
-                             [-s {project,product}] [-a WS_URL] [-o DIR] [-t {binary,json}] [-c CONFIG] [-i INC_TOKENS] [-e EXC_TOKENS] [-in INC_NAMES] [-en EXC_NAMES]
+bulk_report_generator.py [-h] -u WS_USER_KEY -k WS_TOKEN -r
+                                {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
+patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
+                                [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-c CONFIG] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS] [-in INC_NAMES] [-en EXC_NAMES]
 
-Bulk Reports Generator
+WhiteSource Bulk Reports Generator
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -45,26 +48,28 @@ optional arguments:
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
                         WS Token
-  -r {alerts,ignored_alerts,resolved_alerts,inventory,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,reques
-t_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_lice
-nses,bugs,request_history}
+  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at
+tributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in
+_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                         Report Type to produce
+  -t {unified_json,unified_xlsx,binary,json}, --outputType {unified_json,unified_xlsx,binary,json}
+                        Type of output
   -s {project,product}, --ReportScope {project,product}
                         Scope of report
   -a WS_URL, --wsUrl WS_URL
                         WS URL
   -o DIR, --reportDir DIR
                         Report Dir
-  -t {binary,json}, --outputType {binary,json}
-                        Type of output
   -c CONFIG, --config CONFIG
                         Location of configuration file
+  -x EXTRA_REPORT_ARGS, --extraReportArguments EXTRA_REPORT_ARGS
+                        Extra arguments (key=value) to pass the report
   -i INC_TOKENS, --includedTokens INC_TOKENS
-                        Report Dir
+                        Included token (Default: All)
   -e EXC_TOKENS, --excludedTokens EXC_TOKENS
-                        Report Dir
+                        Excluded token (Default: None)
   -in INC_NAMES, --includedNames INC_NAMES
-                        Report Dir
+                        Included Scope Names (Default: All)
   -en EXC_NAMES, --excludedNames EXC_NAMES
-                        Report Dir
+                        Included Scope Names (Default: None)
 ```

@@ -1,4 +1,4 @@
-name: WS Bulk Report Generator
+name: CI
 on:
   push:
     branches:
@@ -10,14 +10,14 @@ on:
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
-    env:
-      TOOL_NAME: ws_bulk_report_generator
     strategy:
       matrix:
         python-version: [3.7, 3.8, 3.9]
     steps:
       - name: Set Environment Variables
         run: |
+          TOOL_NAME=$(echo '${{ github.repository }}' |awk -F '/' '{gsub(/-/, "_", $0) ;print $NF}')
+          echo "TOOL_NAME=$TOOL_NAME" >> $GITHUB_ENV
           echo "RELEASE=false" >> $GITHUB_ENV
           echo "VERSION=0.0.0.ci0" >> $GITHUB_ENV
           echo "TOOL_DIR=$TOOL_NAME" >> $GITHUB_ENV
@@ -31,7 +31,6 @@ jobs:
       - name: Set package version
         run: |
           sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
-          sed -E  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
       - uses: UnicornGlobal/trufflehog-actions-scan@master
         with:
           branch: ${{ github.head_ref }}
@@ -54,8 +53,10 @@ jobs:
         run: python setup.py bdist_wheel
       - name: Install Wheel package
         run: pip install dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
-      - name: Full Test
-        run: ${{ env.TOOL_NAME }} -c ${{ env.TOOL_DIR }}/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r due_diligence
+      - name: Full Test (with json file)
+        run: ${{ env.TOOL_NAME }} -c ${{ env.TOOL_DIR }}/conf/config_ci.json -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r due_diligence
+      - name: Full Test (vulnerability report filtered with single CVE on product level unifed json)
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r vulnerability -t unified_json -x vulnerability_names=CVE-2021-45046
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
@@ -63,7 +64,7 @@ jobs:
           artifacts: dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
           allowUpdates: true
           token: ${{ secrets.GITHUB_TOKEN }}
-          prerelease: ${{ env.RELEASE != true }}
+          prerelease: ${{ !env.RELEASE }}
       - name: Publish to Test PyPI
         if: startsWith(github.ref, 'refs/tags/test-v')
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -80,7 +81,7 @@ jobs:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
       - name: Publish to Confluence - Internal
-        if: ${{ env.RELEASE == true }}
+        if: ${{ env.RELEASE }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
@@ -89,7 +90,7 @@ jobs:
           user: ${{ secrets.CONFLUENCE_USER }}
           token: ${{ secrets.CONFLUENCE_TOKEN }}
       - name: Publish to Confluence - Public
-        if: ${{ env.RELEASE == 'true' }}
+        if: ${{ env.RELEASE }}
         uses: cupcakearmy/confluence-markdown-sync@v1
         with:
           from: README.md
