@@ -229,8 +229,7 @@ def write_file(output: list):
         logger.debug("TBD: Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
-        with open(full_path, args.write_mode) as fp:
-            fp.write(json.dumps(output))
+        json.dump(output, full_path, indent=4) 
 
     logger.info(f"Finished writing filename: '{full_path}'")
 
