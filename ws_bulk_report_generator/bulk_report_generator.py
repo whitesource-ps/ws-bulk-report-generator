@@ -1,19 +1,35 @@
 import json
 import logging
 import os
-import sys
+from datetime import datetime
 from multiprocessing import Manager
 from multiprocessing.pool import ThreadPool
 import argparse
 
 from ws_sdk import WS, ws_constants, ws_errors
-from ws_bulk_report_generator._version import __tool_name__, __version__
+from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
-logging.basicConfig(level=logging.DEBUG if os.environ.get("DEBUG") else logging.INFO,
-                    format='%(levelname)s %(asctime)s %(thread)d %(name)s: %(message)s',
-                    stream=sys.stdout)
+is_debug = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
 logger = logging.getLogger(__tool_name__)
+logger.setLevel(logging.DEBUG)
 
+sdk_logger = logging.getLogger(WS.__module__)
+sdk_logger.setLevel(is_debug)
+
+formatter = logging.Formatter('%(levelname)s %(asctime)s %(thread)d %(name)s: %(message)s')
+s_handler = logging.StreamHandler()
+s_handler.setFormatter(formatter)
+s_handler.setLevel(is_debug)
+logger.addHandler(s_handler)
+sdk_logger.addHandler(s_handler)
+
+# Troubleshoot logging
+# f_handler = logging.FileHandler(f"{__tool_name__}.log")
+# f_handler.setFormatter(formatter)
+# f_handler.setLevel(is_debug)
+# logger.addHandler(f_handler)
+# sdk_logger.addHandler(f_handler)
+# logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
@@ -21,8 +37,8 @@ JSON = 'json'
 BINARY = 'binary'
 UNIFIED_JSON = "unified_json"
 UNIFIED_XLSX = "unified_xlsx"
-CONSOLIDATE = [UNIFIED_JSON, UNIFIED_XLSX]
-ALL_OUTPUT_TYPES = CONSOLIDATE + [BINARY, JSON]
+UNIFIED = [UNIFIED_JSON, UNIFIED_XLSX]
+ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 
 
 def parse_args():
@@ -31,15 +47,12 @@ def parse_args():
     parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
-    parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='scope', default=ws_constants.ScopeTypes.PROJECT)
+    parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PROJECT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', type=str, default="saas")
     parser.add_argument('-o', '--reportDir', help="Report Dir", dest='dir', default="reports", type=str)
-    parser.add_argument('-c', '--config', help="Location of configuration file", dest='config', default='config.json')
     parser.add_argument('-x', '--extraReportArguments', help="Extra arguments (key=value) to pass the report", dest='extra_report_args', type=str)
     parser.add_argument('-i', '--includedTokens', help="Included token (Default: All)", dest='inc_tokens', default=[])
     parser.add_argument('-e', '--excludedTokens', help="Excluded token (Default: None)", dest='exc_tokens', default=[])
-    parser.add_argument('-in', '--includedNames', help="Included Scope Names (Default: All)", dest='inc_names', default=[])
-    parser.add_argument('-en', '--excludedNames', help="Included Scope Names (Default: None)", dest='exc_names', default=[])
 
     return parser.parse_args()
 
@@ -68,19 +81,8 @@ def init():
     args.ws_conn = WS(url=args.ws_url,
                       user_key=args.ws_user_key,
                       token=args.ws_token,
-                      tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__))
-
-    try:
-        fp = open(args.config).read()
-        conf = json.loads(fp)
-        args.inc_tokens = conf.get('IncludedTokens')
-        args.exc_tokens = conf.get('ExcludedTokens')
-        args.inc_names = conf.get('IncludedNames')
-        args.exc_names = conf.get('ExcludedNames')
-    except FileNotFoundError:
-        logger.warning(f"Configuration file: {args.config} was not found")
-    except json.JSONDecodeError:
-        logger.error(f"Unable to parse file: {args.config}")
+                      tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
+                      timeout=3600)
 
     args.report_method = f"get_{args.report}"
     try:
@@ -98,68 +100,32 @@ def init():
 
 
 def get_report_scopes() -> list:
-    def __get_report_tokens__(tokens: list, get_all_scope: bool):
-        ret_tokens = []
-        if tokens:
-            for tok in tokens:
-                try:
-                    tmp_scope = (args.ws_conn.get_scope_by_token(token=tok))
-                    if tmp_scope['type'] == args.scope:
-                        ret_tokens.append(tok)
-                    elif tmp_scope['type'] == ws_constants.ScopeTypes.PRODUCT and args.scope == ws_constants.ScopeTypes.PROJECT:  # Extract projects from products
-                        logger.debug(f"Token: {tok} is of product {tmp_scope['name']}. Adding its projects into scope")
-                        prod_scopes = (args.ws_conn.get_projects(product_token=tok))
-                        for s in prod_scopes:
-                            ret_tokens.append(s['token'])
-                    else:
-                        logger.warning(f"Token: {tok} is not of report scope type: {args.scope} and will be skipped")
-                except ws_errors.WsSdkError:
-                    logger.warning(f"Token: {tok} does not exist and will be skipped")
-        elif get_all_scope:  # If no value in inc tokens then take all
-            logger.info(f"Getting all tokens of {args.scope}s of the organization")
-            prod_scopes = args.ws_conn.get_scopes(scope_type=args.scope)
-            for s in prod_scopes:
-                ret_tokens.append(s['token'])
-        else:
-            logger.debug("No tokens were passed")
-
-        return ret_tokens
-
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
 
         return directory
 
-    global args
-    for name in args.inc_names:
-        args.inc_tokens.extend(args.ws_conn.get_tokens_from_name(name))
-
-    for name in args.exc_names:
-        args.exc_tokens.extend(args.ws_conn.get_tokens_from_name(name))
-
-    # Subtracting tokens from same scope type
-    args.int_tokens = [t for t in args.inc_tokens if t in args.exc_tokens]  # Collecting intersected tokens
-    args.inc_tokens = [t for t in args.inc_tokens if t not in args.int_tokens]
-    args.exc_tokens = [t for t in args.exc_tokens if t not in args.int_tokens]
-    logger.debug(f"Shallow filter: removed {len(args.int_tokens)} from scopes")
-    inc_tokens = __get_report_tokens__(args.inc_tokens, True)
-    exc_tokens = __get_report_tokens__(args.exc_tokens, False)
-    total_tokens = [t for t in inc_tokens if t not in exc_tokens]
-    logger.debug(f"Deep filter: removed {len(inc_tokens) - len(total_tokens)}  from scopes")
-
-    scopes = []
-    if not total_tokens:
-        logger.error("No scopes were found to generate reports. Please check configuration")
-    else:
-        logger.info(f"Found {len(total_tokens)} tokens to generate reports")
-        for token in total_tokens:
-            scope = args.ws_conn.get_scope_by_token(token=token)
+    def prep_scope(report_scopes):
+        for s in report_scopes:
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
-            report_name = f"{scope['name']}_{scope['productName']}" if scope['type'] == ws_constants.PROJECT else scope['name']
-            filename = f"{scope['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
-            scope['report_full_name'] = os.path.join(args.dir, filename)
-            scopes.append(scope)
+            report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
+            filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
+            s['report_full_name'] = os.path.join(args.dir, filename)
+
+    global args
+    if args.inc_tokens:
+        inc_tokens_l = [t.strip() for t in args.inc_tokens.split(',')]
+        scopes = []
+        for token in inc_tokens_l:
+            scopes.append(args.ws_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
+    else:
+        scopes = args.ws_conn.get_scopes(scope_type=args.report_scope_type)
+
+    if args.exc_tokens:
+        scopes = [s for s in scopes if s['token'] in args.exc_tokens]
+
+    prep_scope(scopes)
 
     return scopes
 
@@ -190,10 +156,10 @@ def worker_generate_report(report_desc, arguments, scopes_data_q):
     try:
         logger.debug(f"Running '{arguments.report}' report on {report_desc['type']}: '{report_desc['name']}'")
         output = arguments.report_method(arguments.ws_conn,
-                                         token=report_desc['token'],
+                                         token=(report_desc['token'], arguments.report_scope_type),
                                          report=arguments.is_binary,
                                          **arguments.extra_report_args_d)
-        if arguments.output_type in CONSOLIDATE:
+        if arguments.output_type in UNIFIED:
             scopes_data_q.put(output)
         else:
             logger.debug(f"Saving report in: {report_desc['report_full_name']}")
@@ -229,12 +195,15 @@ def write_file(output: list):
         logger.debug("TBD: Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
-        json.dump(output, full_path, indent=4) 
+        with open(full_path, args.write_mode) as fp:
+            json.dump(output, fp)
 
     logger.info(f"Finished writing filename: '{full_path}'")
 
 
 def main():
+    logger.info(f"Start running {__description__}")
+    start_time = datetime.now()
     global args, conf
     args = parse_args()
     init()
@@ -244,9 +213,8 @@ def main():
     if ret:
         write_file(ret)
 
-    logger.info("Finished running bulk report generator")
+    logger.info(f"Finished running {__description__}. Run time: {datetime.now() - start_time}")
 
 
 if __name__ == '__main__':
     main()
-
