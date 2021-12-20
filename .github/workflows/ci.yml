@@ -53,10 +53,12 @@ jobs:
         run: python setup.py bdist_wheel
       - name: Install Wheel package
         run: pip install dist/${{ env.TOOL_DIR }}-${{ env.VERSION }}-py3-none-any.whl
-      - name: Full Test (with json file)
+      - name: Full Test (due diligence seperate files)
         run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r due_diligence
       - name: Full Test (vulnerability report filtered with single CVE on product level unifed json)
-        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r vulnerability -t unified_json -x vulnerability_names=CVE-2021-45046
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }}  -r vulnerability -t unified_json -x vulnerability_names=CVE-2021-45046
+      - name: Full Test (inventory report product level unifed xlsx)
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r inventory -t unified_xlsx
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
