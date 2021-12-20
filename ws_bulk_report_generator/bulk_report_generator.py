@@ -23,13 +23,6 @@ s_handler.setLevel(is_debug)
 logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
 
-# Troubleshoot logging
-# f_handler = logging.FileHandler(f"{__tool_name__}.log")
-# f_handler.setFormatter(formatter)
-# f_handler.setLevel(is_debug)
-# logger.addHandler(f_handler)
-# sdk_logger.addHandler(f_handler)
-# logging.getLogger("urllib3").setLevel(logging.WARNING)
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
@@ -47,7 +40,7 @@ def parse_args():
     parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
-    parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PROJECT)
+    parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PRODUCT)
     parser.add_argument('-a', '--wsUrl', help="WS URL", dest='ws_url', type=str, default="saas")
     parser.add_argument('-o', '--reportDir', help="Report Dir", dest='dir', default="reports", type=str)
     parser.add_argument('-x', '--extraReportArguments', help="Extra arguments (key=value) to pass the report", dest='extra_report_args', type=str)
@@ -154,13 +147,16 @@ def generate_reports_manager(reports_desc_list: list):
 
 def worker_generate_report(report_desc, arguments, scopes_data_q):
     try:
-        logger.debug(f"Running '{arguments.report}' report on {report_desc['type']}: '{report_desc['name']}'")
+        logger.info(f"Running '{arguments.report}' report on {report_desc['type']}: '{report_desc['name']}'")
         output = arguments.report_method(arguments.ws_conn,
                                          token=(report_desc['token'], arguments.report_scope_type),
                                          report=arguments.is_binary,
                                          **arguments.extra_report_args_d)
         if arguments.output_type in UNIFIED:
-            scopes_data_q.put(output)
+            if output:
+                scopes_data_q.put(output)
+            else:
+                logging.debug(f"Report '{arguments.report}' returned empty on {report_desc['type']}: '{report_desc['name']}'")
         else:
             logger.debug(f"Saving report in: {report_desc['report_full_name']}")
             f = open(report_desc['report_full_name'], arguments.write_mode)
@@ -173,26 +169,49 @@ def worker_generate_report(report_desc, arguments, scopes_data_q):
 
 
 def generate_xlsx(output, full_path):
+    def generate_row_data(col_names: list, d: dict) -> list:
+        row_data_l = []
+        for c in col_names:
+            cell_val = d.get(c)
+            if isinstance(cell_val, (list, dict)):
+                cell_val = json.dumps(cell_val)
+            row_data_l.append(cell_val)
+
+        return row_data_l
+
+    def generate_table_labels(o: list) -> list:
+        col_names = args.report_method(WS, ws_constants.ReportsMetaData.COLUMN_NAMES)
+        if not col_names:
+            col_names = o[0].keys()
+
+        for c_num, c_name in enumerate(col_names):
+            worksheet.write(0, c_num, c_name, cell_format)
+
+        return col_names
+
     try:
         import xlsxwriter
     except ImportError:
         logger.error(f"Report type is '{args.output_type}' but package 'XlsxWriter' is not installed. Make sure the tool is installed with optional dependency: 'pip install ws-{__tool_name__.replace('-', '_')}[xslx]' ")
         exit(-1)
 
-    # with xlsxwriter.Workbook(full_path) as workbook:
-    #     worksheet = workbook.add_worksheet()
-    #     # Writing column headers
-    #     cell_format = workbook.add_format({'bold': True, 'italic': False})
-    #     columns = create_column_data(project_name)
+    with xlsxwriter.Workbook(full_path) as workbook:
+        worksheet = workbook.add_worksheet()
+        cell_format = workbook.add_format({'bold': True, 'italic': False})
+        column_names = generate_table_labels(output)
+
+        last_row = 1
+        for row_num, row_data in enumerate(output):
+            worksheet.write_row(row_num + last_row, 0, generate_row_data(column_names, row_data))
 
 
-def write_file(output: list):
+def write_unified_file(output: list):
     report_name = f"{args.ws_conn.get_name()} - {args.report} report"
     filename = f"{report_name}.{args.report_extension}"
     full_path = os.path.join(args.dir, filename)
 
     if args.output_type == UNIFIED_XLSX:
-        logger.debug("TBD: Converting output to Excel")
+        logger.debug("Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
         with open(full_path, args.write_mode) as fp:
@@ -202,16 +221,19 @@ def write_file(output: list):
 
 
 def main():
-    logger.info(f"Start running {__description__}")
-    start_time = datetime.now()
     global args, conf
+    start_time = datetime.now()
     args = parse_args()
+    logger.info(f"Start running {__description__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL} ")
     init()
     report_scopes = get_report_scopes()
     ret = generate_reports_manager(report_scopes)
 
-    if ret:
-        write_file(ret)
+    if args.output_type in UNIFIED:
+        if ret:
+            write_unified_file(ret)
+        else:
+            logger.info("No data returned. No report will be saved")
 
     logger.info(f"Finished running {__description__}. Run time: {datetime.now() - start_time}")
 

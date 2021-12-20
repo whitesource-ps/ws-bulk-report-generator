@@ -4,10 +4,10 @@
 [![GitHub release](https://img.shields.io/github/v/release/whitesource-ps/ws-bulk-report-generator)](https://github.com/whitesource-ps/ws-bulk-report-generator/releases/latest)
 [![PyPI](https://img.shields.io/pypi/v/ws-bulk-report-generator?style=plastic)](https://pypi.org/project/ws-bulk-report-generator/)
 # [WhiteSource Bulk Report Generator](https://github.com/whitesource-ps/ws-bulk-report-generator)
-Tool to execute a report on multiple projects.
-* The tool allows including and excluding scopes by stating names and tokens.
-* Report scope determines whether reports will be run on projects or products.
-* If Included scopes is not stated, the tool will run reports on **all** of scopes.
+Tool to execute reports on multiple products or projects.
+* The tool allows including and excluding scopes by stating their tokens.
+* Report scope (_--ReportScope/-s_) determines whether reports will be run on projects or products.
+* If Included scopes (via -i) is not stated, the tool will run reports on **all** of scopes.
 * Report data is exported by default in binary (i.e. Excel or PDF) format or JSON.
 
 ## Supported Operating Systems
@@ -38,12 +38,12 @@ ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r invent
 
 ## Full Usage:
 ```shell
-bulk_report_generator.py [-h] -u WS_USER_KEY -k WS_TOKEN -r
+usage: ws_bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN -r
                                 {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
 patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
-                                [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-c CONFIG] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS] [-in INC_NAMES] [-en EXC_NAMES]
+                                [-s {project,product}] [-a WS_URL] [-o DIR] [-t {binary,json}] [-c CONFIG] [-i INC_TOKENS] [-e EXC_TOKENS] [-in INC_NAMES] [-en EXC_NAMES]
 
-WhiteSource Bulk Reports Generator
+Bulk Reports Generator
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -55,6 +55,20 @@ optional arguments:
 tributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in
 _house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                         Report Type to produce
+  -s {project,product}, --ReportScope {project,product}
+                        Scope of report
+  -a WS_URL, --wsUrl WS_URL
+                        WS URL
+  -o DIR, --reportDir DIR
+                        Report Dir
+  -t {binary,json}, --outputType {binary,json}
+                        Type of output
+  -c CONFIG, --config CONFIG
+                        Location of configuration file
+  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_dilig
+ence,attributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_hous
+e_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
+                        Report Type to produce
   -t {unified_json,unified_xlsx,binary,json}, --outputType {unified_json,unified_xlsx,binary,json}
                         Type of output
   -s {project,product}, --ReportScope {project,product}
@@ -63,16 +77,11 @@ _house,risk,library_location,license_compatibility,due_diligence,attributes,attr
                         WS URL
   -o DIR, --reportDir DIR
                         Report Dir
-  -c CONFIG, --config CONFIG
-                        Location of configuration file
   -x EXTRA_REPORT_ARGS, --extraReportArguments EXTRA_REPORT_ARGS
                         Extra arguments (key=value) to pass the report
   -i INC_TOKENS, --includedTokens INC_TOKENS
                         Included token (Default: All)
   -e EXC_TOKENS, --excludedTokens EXC_TOKENS
                         Excluded token (Default: None)
-  -in INC_NAMES, --includedNames INC_NAMES
-                        Included Scope Names (Default: All)
-  -en EXC_NAMES, --excludedNames EXC_NAMES
-                        Included Scope Names (Default: None)
+
 ```
