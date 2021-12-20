@@ -1,15 +1,17 @@
+import concurrent
 import json
 import logging
 import os
+from copy import copy
 from datetime import datetime
-from multiprocessing import Manager
-from multiprocessing.pool import ThreadPool
 import argparse
+from concurrent.futures import ThreadPoolExecutor
 
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
-is_debug = logging.DEBUG if os.environ.get("DEBUG") else logging.INFO
+is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
+
 logger = logging.getLogger(__tool_name__)
 logger.setLevel(logging.DEBUG)
 
@@ -22,6 +24,7 @@ s_handler.setFormatter(formatter)
 s_handler.setLevel(is_debug)
 logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
+logger.propagate = False
 
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
@@ -38,6 +41,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='WhiteSource Bulk Reports Generator')
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
     parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
+    parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
     parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PRODUCT)
@@ -70,10 +74,14 @@ def init():
         return ret
 
     global conf, args
+    if args.ws_token_type is None:
+        # args.ws_token_type = WS.discover_token_type(user_key=args.ws_user_key, token=args.ws_user_key)    # TBD
+        args.ws_token_type = ws_constants.ScopeTypes.ORGANIZATION
 
     args.ws_conn = WS(url=args.ws_url,
                       user_key=args.ws_user_key,
                       token=args.ws_token,
+                      token_type=args.ws_token_type,
                       tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
                       timeout=3600)
 
@@ -92,7 +100,23 @@ def init():
     args.write_mode = 'bw' if args.is_binary else 'w'
 
 
-def get_report_scopes() -> list:
+def get_reports_scopes() -> list:
+    if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+        org_tokens = args.ws_conn.get_organizations()
+    else:
+        org_tokens = [args.ws_token]
+    scopes = []
+    for token in org_tokens:
+        logger.info(f"Handling organization Token: '{token}'")
+        scopes.extend(get_reports_scopes_from_org(token))
+
+    if args.exc_tokens:
+        scopes = [s for s in scopes if s['token'] in args.exc_tokens]
+
+    return scopes
+
+
+def get_reports_scopes_from_org(org_token) -> list:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
@@ -105,56 +129,50 @@ def get_report_scopes() -> list:
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
+            s['ws_conn'] = org_conn
 
     global args
+    org_conn = copy(args.ws_conn)
+    org_conn.token_type = ws_constants.ScopeTypes.ORGANIZATION
+    org_conn.token = org_token
     if args.inc_tokens:
         inc_tokens_l = [t.strip() for t in args.inc_tokens.split(',')]
         scopes = []
         for token in inc_tokens_l:
-            scopes.append(args.ws_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
+            scopes.append(org_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
     else:
-        scopes = args.ws_conn.get_scopes(scope_type=args.report_scope_type)
-
-    if args.exc_tokens:
-        scopes = [s for s in scopes if s['token'] in args.exc_tokens]
+        scopes = org_conn.get_scopes(scope_type=args.report_scope_type)
 
     prep_scope(scopes)
 
     return scopes
 
 
-def generate_reports_manager(reports_desc_list: list):
-    def consolidate_output(q) -> list:
-        unified_output = []
-        while not q.empty():
-            unified_output.extend(q.get(block=True, timeout=0.05))
+def generate_reports_m(reports_desc_list: list):
+    data_l = []
+    with ThreadPoolExecutor(max_workers=PROJECT_PARALLELISM_LEVEL) as executer:
+        futures = []
+        for report_desc in reports_desc_list:
+            futures.append(executer.submit(generate_report_w, report_desc, args))
+        for future in concurrent.futures.as_completed(futures):
+            temp_l = future.result()
+            if temp_l:
+                data_l.extend(temp_l)
 
-        return unified_output
+    return data_l
 
-    manager = Manager()
-    scopes_data_q = manager.Queue()
 
-    with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as pool:
-        pool.starmap(worker_generate_report, [(report_desc, args, scopes_data_q) for report_desc in reports_desc_list])
-
+def generate_report_w(report_desc, arguments):
     ret = None
-    if not scopes_data_q.empty():
-        logger.debug("Consolidating queue output from generated reports")
-        ret = consolidate_output(scopes_data_q)
-
-    return ret
-
-
-def worker_generate_report(report_desc, arguments, scopes_data_q):
     try:
         logger.info(f"Running '{arguments.report}' report on {report_desc['type']}: '{report_desc['name']}'")
-        output = arguments.report_method(arguments.ws_conn,
+        output = arguments.report_method(report_desc['ws_conn'],
                                          token=(report_desc['token'], arguments.report_scope_type),
                                          report=arguments.is_binary,
                                          **arguments.extra_report_args_d)
         if arguments.output_type in UNIFIED:
             if output:
-                scopes_data_q.put(output)
+                ret = output
             else:
                 logging.debug(f"Report '{arguments.report}' returned empty on {report_desc['type']}: '{report_desc['name']}'")
         else:
@@ -163,9 +181,11 @@ def worker_generate_report(report_desc, arguments, scopes_data_q):
             report = output if arguments.is_binary else json.dumps(output)
             f.write(report)
             f.close()
-
     except ws_errors.WsSdkError or OSError:
         logger.exception("Error producing report")
+        raise
+
+    return ret
 
 
 def generate_xlsx(output, full_path):
@@ -226,8 +246,8 @@ def main():
     args = parse_args()
     logger.info(f"Start running {__description__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL} ")
     init()
-    report_scopes = get_report_scopes()
-    ret = generate_reports_manager(report_scopes)
+    report_scopes = get_reports_scopes()
+    ret = generate_reports_m(report_scopes)
 
     if args.output_type in UNIFIED:
         if ret:

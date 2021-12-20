@@ -23,7 +23,7 @@ Tool to execute reports on multiple products or projects.
 
 ## Examples:
 ```shell
-# Generate Inventory Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
+# Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
 
 # Generate Risk Reports (PDF format) on all products (file per product) within organization:
