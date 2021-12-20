@@ -38,12 +38,12 @@ ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r invent
 
 ## Full Usage:
 ```shell
-usage: ws_bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN -r
+usage: bulk_report_generator.py [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organization,globalOrganization}] -r
                                 {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
 patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
-                                [-s {project,product}] [-a WS_URL] [-o DIR] [-t {binary,json}] [-c CONFIG] [-i INC_TOKENS] [-e EXC_TOKENS] [-in INC_NAMES] [-en EXC_NAMES]
+                                [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS]
 
-Bulk Reports Generator
+WhiteSource Bulk Reports Generator
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -51,23 +51,11 @@ optional arguments:
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
                         WS Token
+  -y {organization,globalOrganization}, --token_type {organization,globalOrganization}
+                        WS Token Type
   -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at
 tributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in
 _house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
-                        Report Type to produce
-  -s {project,product}, --ReportScope {project,product}
-                        Scope of report
-  -a WS_URL, --wsUrl WS_URL
-                        WS URL
-  -o DIR, --reportDir DIR
-                        Report Dir
-  -t {binary,json}, --outputType {binary,json}
-                        Type of output
-  -c CONFIG, --config CONFIG
-                        Location of configuration file
-  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_dilig
-ence,attributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_hous
-e_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                         Report Type to produce
   -t {unified_json,unified_xlsx,binary,json}, --outputType {unified_json,unified_xlsx,binary,json}
                         Type of output
@@ -83,5 +71,4 @@ e_libraries,in_house,risk,library_location,license_compatibility,due_diligence,a
                         Included token (Default: All)
   -e EXC_TOKENS, --excludedTokens EXC_TOKENS
                         Excluded token (Default: None)
-
 ```
