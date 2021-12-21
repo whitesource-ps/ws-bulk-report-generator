@@ -24,7 +24,7 @@ s_handler.setFormatter(formatter)
 s_handler.setLevel(is_debug)
 logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
-logger.propagate = False
+sdk_logger.propagate = False
 
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
@@ -101,22 +101,33 @@ def init():
 
 
 def get_reports_scopes() -> list:
+    orgs = None
     if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
-        org_tokens = args.ws_conn.get_organizations()
-    else:
-        org_tokens = [args.ws_token]
-    scopes = []
-    for token in org_tokens:
-        logger.info(f"Handling organization Token: '{token}'")
-        scopes.extend(get_reports_scopes_from_org(token))
+        orgs = args.ws_conn.get_organizations()
+        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: {args.ws_token}")
 
+    orgs = [org['orgToken'] for org in orgs] if isinstance(orgs, list) else [args.ws_token]
+    scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] in args.exc_tokens]
 
     return scopes
 
 
-def get_reports_scopes_from_org(org_token) -> list:
+def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
+    data_l = []
+    errors = []
+    with ThreadPoolExecutor(max_workers=PROJECT_PARALLELISM_LEVEL) as executer:
+        futures = [executer.submit(worker, ent) for ent in ent_l]
+        for future in concurrent.futures.as_completed(futures):
+            temp_l = future.result()
+            if temp_l:
+                data_l.extend(temp_l)
+
+        return data_l, errors
+
+
+def get_reports_scopes_from_org_w(org_token) -> list:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
@@ -141,49 +152,34 @@ def get_reports_scopes_from_org(org_token) -> list:
         for token in inc_tokens_l:
             scopes.append(org_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
     else:
-        scopes = org_conn.get_scopes(scope_type=args.report_scope_type)
+        try:
+            scopes = org_conn.get_scopes(scope_type=args.report_scope_type)
+        except ws_errors.WsSdkServerInactiveOrg:
+            logger.warning(f"Organization: '{org_token}' is disabled and will be skipped")
 
     prep_scope(scopes)
 
     return scopes
 
 
-def generate_reports_m(reports_desc_list: list):
-    data_l = []
-    with ThreadPoolExecutor(max_workers=PROJECT_PARALLELISM_LEVEL) as executer:
-        futures = []
-        for report_desc in reports_desc_list:
-            futures.append(executer.submit(generate_report_w, report_desc, args))
-        for future in concurrent.futures.as_completed(futures):
-            temp_l = future.result()
-            if temp_l:
-                data_l.extend(temp_l)
-
-    return data_l
-
-
-def generate_report_w(report_desc, arguments):
+def generate_report_w(report_desc):
     ret = None
-    try:
-        logger.info(f"Running '{arguments.report}' report on {report_desc['type']}: '{report_desc['name']}'")
-        output = arguments.report_method(report_desc['ws_conn'],
-                                         token=(report_desc['token'], arguments.report_scope_type),
-                                         report=arguments.is_binary,
-                                         **arguments.extra_report_args_d)
-        if arguments.output_type in UNIFIED:
-            if output:
-                ret = output
-            else:
-                logging.debug(f"Report '{arguments.report}' returned empty on {report_desc['type']}: '{report_desc['name']}'")
+    logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}'")
+    output = args.report_method(report_desc['ws_conn'],
+                                token=(report_desc['token'], args.report_scope_type),
+                                report=args.is_binary,
+                                **args.extra_report_args_d)
+    if args.output_type in UNIFIED:
+        if output:
+            ret = output
         else:
-            logger.debug(f"Saving report in: {report_desc['report_full_name']}")
-            f = open(report_desc['report_full_name'], arguments.write_mode)
-            report = output if arguments.is_binary else json.dumps(output)
-            f.write(report)
-            f.close()
-    except ws_errors.WsSdkError or OSError:
-        logger.exception("Error producing report")
-        raise
+            logging.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}'")
+    else:
+        logger.debug(f"Saving report in: {report_desc['report_full_name']}")
+        f = open(report_desc['report_full_name'], args.write_mode)
+        report = output if args.is_binary else json.dumps(output)
+        f.write(report)
+        f.close()
 
     return ret
 
@@ -240,21 +236,35 @@ def write_unified_file(output: list):
     logger.info(f"Finished writing filename: '{full_path}'")
 
 
+def generate_reports(report_scopes: list):
+    return generic_thread_pool_m(ent_l=report_scopes, worker=generate_report_w)
+
+
+def handle_unified_report(output):
+    if output:
+        write_unified_file(output)
+    else:
+        logger.info("No data returned. No report will be saved")
+
+
+def print_errors(errors: list):
+    for error in errors:
+        logger.error(f"Error: {error}")
+
+
 def main():
     global args, conf
     start_time = datetime.now()
     args = parse_args()
-    logger.info(f"Start running {__description__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL} ")
+    logger.info(f"Start running {__description__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
     init()
     report_scopes = get_reports_scopes()
-    ret = generate_reports_m(report_scopes)
+    ret, errors = generate_reports(report_scopes)
 
     if args.output_type in UNIFIED:
-        if ret:
-            write_unified_file(ret)
-        else:
-            logger.info("No data returned. No report will be saved")
+        handle_unified_report(ret)
 
+    print_errors(errors)
     logger.info(f"Finished running {__description__}. Run time: {datetime.now() - start_time}")
 
 
