@@ -19,6 +19,7 @@ Tool to execute reports on multiple products or projects.
 
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
+* **Note**:  If installing packages as a non-root be sure to include the path to the executables within the Operating System paths.
 2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
 * **Note**:  If installing packages as a non-root be sure to include the path to the executables within the Operating System paths.  
 
@@ -40,9 +41,46 @@ ws_bulk_report_generator -s product -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
 ```
 
+## Examples:
+```shell
+# Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
+
+# Generate Risk Reports (PDF format) on all products (file per product) within organization:
+ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r risk  
+
+# Search for log4j 3 recent vulnerabilities in all the organization and get output in a single JSON:
+ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
+
+# Execute Inventory report AS PRODUCT and get a unified JSON on all the organization: 
+ws_bulk_report_generator -s product -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json
+
+# Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
+```
+
+## Examples:
+```shell
+# Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
+
+# Generate Risk Reports (PDF format) on all products (file per product) within organization:
+ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -s product -r risk  
+
+# Search for log4j 3 recent vulnerabilities in all the organization and get output in a single JSON:
+ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
+
+# Execute Inventory report and get a unified JSON on all the organization: 
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json
+
+# Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
+
+```
+
 ## Full Usage:
 ```shell
-usage: bulk_report_generator.py [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organization,globalOrganization}] -r
+usage: bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organization,globalOrganization}] -r
                                 {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
 patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                                 [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS]
