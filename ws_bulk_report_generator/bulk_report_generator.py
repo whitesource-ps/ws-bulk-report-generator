@@ -8,7 +8,6 @@ from copy import copy
 from datetime import datetime
 
 from ws_sdk import WS, ws_constants, ws_errors
-
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
 is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
@@ -149,6 +148,12 @@ def get_reports_scopes_from_org_w(org_token: str) -> list:
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
             s['ws_conn'] = org_conn
+
+    def replace_invalid_chars(directory: str) -> str:
+        for char in ws_constants.INVALID_FS_CHARS:
+            directory = directory.replace(char, "_")
+
+        return directory
 
     global args
     org_conn = copy(args.ws_conn)
