@@ -3,9 +3,10 @@ import json
 import logging
 import os
 from copy import copy
-from datetime import datetime
+from datetime import datetime, time
 import argparse
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Queue
 
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
@@ -98,6 +99,7 @@ def init():
     args.extra_report_args_d = get_extra_report_args(args.extra_report_args)
     args.is_binary = True if args.output_type == BINARY else False
     args.write_mode = 'bw' if args.is_binary else 'w'
+    args.reports_error = []
 
 
 def get_reports_scopes() -> list:
@@ -115,19 +117,25 @@ def get_reports_scopes() -> list:
 
 
 def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
-    data_l = []
+    data = []
     errors = []
+
     with ThreadPoolExecutor(max_workers=PROJECT_PARALLELISM_LEVEL) as executer:
         futures = [executer.submit(worker, ent) for ent in ent_l]
+
         for future in concurrent.futures.as_completed(futures):
-            temp_l = future.result()
-            if temp_l:
-                data_l.extend(temp_l)
+            try:
+                temp_l = future.result()
+                if temp_l:
+                    data.extend(temp_l)
+            except Exception as e:
+                errors.append(e)
+                raise
 
-        return data_l, errors
+    return data, errors
 
 
-def get_reports_scopes_from_org_w(org_token) -> list:
+def get_reports_scopes_from_org_w(org_token: str) -> list:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
@@ -162,9 +170,10 @@ def get_reports_scopes_from_org_w(org_token) -> list:
     return scopes
 
 
-def generate_report_w(report_desc):
+def generate_report_w(report_desc: dict):
     ret = None
     logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}'")
+
     output = args.report_method(report_desc['ws_conn'],
                                 token=(report_desc['token'], args.report_scope_type),
                                 report=args.is_binary,
@@ -240,16 +249,11 @@ def generate_reports(report_scopes: list):
     return generic_thread_pool_m(ent_l=report_scopes, worker=generate_report_w)
 
 
-def handle_unified_report(output):
+def handle_unified_report(output: list):
     if output:
         write_unified_file(output)
     else:
         logger.info("No data returned. No report will be saved")
-
-
-def print_errors(errors: list):
-    for error in errors:
-        logger.error(f"Error: {error}")
 
 
 def main():
@@ -264,7 +268,6 @@ def main():
     if args.output_type in UNIFIED:
         handle_unified_report(ret)
 
-    print_errors(errors)
     logger.info(f"Finished running {__description__}. Run time: {datetime.now() - start_time}")
 
 
