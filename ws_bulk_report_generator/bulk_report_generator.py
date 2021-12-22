@@ -1,14 +1,14 @@
+import argparse
 import concurrent
 import json
 import logging
 import os
-from copy import copy
-from datetime import datetime, time
-import argparse
 from concurrent.futures import ThreadPoolExecutor
-from multiprocessing import Queue
+from copy import copy
+from datetime import datetime
 
 from ws_sdk import WS, ws_constants, ws_errors
+
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
 is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
