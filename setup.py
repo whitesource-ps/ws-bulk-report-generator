@@ -18,6 +18,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires='>=3.7',
     install_requires=[line.strip() for line in open("requirements.txt").readlines()],
+    extras_require={"xlsx": ["XlsxWriter~=3.0.2"]},
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
     classifiers=[
