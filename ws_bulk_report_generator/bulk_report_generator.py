@@ -127,7 +127,7 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
                 temp_l = future.result()
                 if temp_l:
                     data.extend(temp_l)
-            except Exception as e:
+            except OSError or ws_errors.WsSdkServerError as e:
                 errors.append(e)
                 raise
 
