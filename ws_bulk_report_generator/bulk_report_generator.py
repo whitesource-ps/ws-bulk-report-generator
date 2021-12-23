@@ -166,7 +166,7 @@ def get_reports_scopes_from_org_w(org_token: str) -> list:
             scopes.append(org_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
     else:
         try:
-            scopes = org_conn.get_scopes(scope_type=args.report_scope_type)
+            scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
         except ws_errors.WsSdkServerInactiveOrg:
             logger.warning(f"Organization: '{org_token}' is disabled and will be skipped")
 
