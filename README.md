@@ -34,8 +34,8 @@ ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/
 # Search for log4j 3 recent vulnerabilities in all the organization and get output in a single JSON:
 ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
 
-# Execute Inventory report AS PRODUCT and get a unified JSON on all the organization: 
-ws_bulk_report_generator -s product -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json
+# Execute Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization: 
+ws_bulk_report_generator -s product -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb"
 
 # Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
