@@ -25,6 +25,7 @@ s_handler.setLevel(is_debug)
 logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
+logger.propagate = False
 
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
@@ -265,7 +266,7 @@ def main():
     global args, conf
     start_time = datetime.now()
     args = parse_args()
-    logger.info(f"Start running {__description__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
+    logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
     init()
     report_scopes = get_reports_scopes()
     ret, errors = generate_reports(report_scopes)
