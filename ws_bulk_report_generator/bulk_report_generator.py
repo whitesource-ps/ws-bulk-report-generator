@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
+
 from requests.exceptions import RequestException
 
 from ws_sdk import WS, ws_constants, ws_errors
@@ -129,8 +130,9 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
                 temp_l = future.result()
                 if temp_l:
                     data.extend(temp_l)
-            except OSError or ws_errors.WsSdkServerError or RequestException as e:
+            except Exception as e:
                 errors.append(e)
+                logger.error(f"Error on future: {future.result()}")
                 SystemExit()
 
     return data, errors
