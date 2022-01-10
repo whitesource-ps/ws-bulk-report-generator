@@ -29,3 +29,4 @@ local-env.*
 /ws_bulk_report_generator/reports/
 /build/
 /ws_bulk_report_generator/bulk_report_generator.log
+ws_bulk_report_generator/__pycache__/

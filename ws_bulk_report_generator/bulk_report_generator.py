@@ -7,6 +7,8 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
 
+from requests.exceptions import RequestException
+
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
@@ -70,7 +72,7 @@ def init():
             if len(report_args_val_l) > 1:
                 extra_report_args_l[1] = [value.strip() for value in report_args_val_l]
             ret = {extra_report_args_l[0]: extra_report_args_l[1]}
-            logger.debug(f"Extra arguments to pass the report: {ret}")
+            logger.debug(f"Extra arguments passed to the report: {ret}")
 
         return ret
 
@@ -128,9 +130,10 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
                 temp_l = future.result()
                 if temp_l:
                     data.extend(temp_l)
-            except OSError or ws_errors.WsSdkServerError as e:
+            except Exception as e:
                 errors.append(e)
-                raise
+                logger.error(f"Error on future: {future.result()}")
+                SystemExit()
 
     return data, errors
 
@@ -226,14 +229,18 @@ def generate_xlsx(output, full_path):
         logger.error(f"Report type is '{args.output_type}' but package 'XlsxWriter' is not installed. Make sure the tool is installed with optional dependency: 'pip install ws-{__tool_name__.replace('-', '_')}[xslx]' ")
         exit(-1)
 
-    with xlsxwriter.Workbook(full_path) as workbook:
+    # options = {'constant_memory': True}
+    # options = {'in_memory': True}
+    options = None
+    with xlsxwriter.Workbook(full_path, options=options) as workbook:
         worksheet = workbook.add_worksheet()
         cell_format = workbook.add_format({'bold': True, 'italic': False})
         column_names = generate_table_labels(output)
 
-        last_row = 1
         for row_num, row_data in enumerate(output):
-            worksheet.write_row(row_num + last_row, 0, generate_row_data(column_names, row_data))
+            worksheet.write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
+
+        logger.debug(f"Total number of Excel rows: {row_num}")
 
 
 def write_unified_file(output: list):
@@ -241,14 +248,15 @@ def write_unified_file(output: list):
     filename = f"{report_name}.{args.report_extension}"
     full_path = os.path.join(args.dir, filename)
 
+    start_time = datetime.now()
     if args.output_type == UNIFIED_XLSX:
-        logger.debug("Converting output to Excel")
+        logger.info("Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
         with open(full_path, args.write_mode) as fp:
             json.dump(output, fp)
 
-    logger.info(f"Finished writing filename: '{full_path}'")
+    logger.info(f"Finished writing filename: '{full_path}'. Total time: {datetime.now() - start_time}")
 
 
 def generate_reports(report_scopes: list):
