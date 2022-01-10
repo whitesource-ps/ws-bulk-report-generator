@@ -7,8 +7,6 @@ from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
 
-from requests.exceptions import RequestException
-
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
