@@ -28,7 +28,7 @@ jobs:
             fi
           fi
       - uses: actions/checkout@v2
-      - name: Set package version
+      - name: Set release version
         run: |
           sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
       - uses: UnicornGlobal/trufflehog-actions-scan@master
@@ -38,14 +38,14 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
-      - name: change requirements dependecy to a testing release on even days
+      - name: Change to last ws-sdk version on odd days (Mon, Wed, Fri, Sun)
         run: |
           sdk_c_ver=$(grep "ws-sdk" requirements.txt | awk -F '=' '{print $NF}')
           sdk_t_ver=$(curl -sL https://pypi.org/pypi/ws-sdk/json | jq -r '.releases| keys[]' | sort -t. -k 1,1n -k 2,2n -k 3,3n | tail -n1)
           
           if (( $(date +"%u") % 2 )) ; then
             echo "Odd day - Replacing current ws-sdk version: ($sdk_c_ver) with latest release: $(sdk_t_ver)"
-            sed -E "s/^ws-sdk.+/ws-sdk==${sdk_t_ver}/g" requirements.txt
+            sed -E -i "s/^ws-sdk.+/ws-sdk==${sdk_t_ver}/g" requirements.txt
           fi
       - name: Install dependencies
         run: |
