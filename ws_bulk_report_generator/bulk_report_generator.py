@@ -39,7 +39,7 @@ ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description='WhiteSource Bulk Reports Generator')
+    parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
     parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
     parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
