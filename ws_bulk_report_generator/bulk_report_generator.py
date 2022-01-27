@@ -135,14 +135,14 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
     return data, errors
 
 
-def get_reports_scopes_from_org_w(org: str) -> list:
+def get_reports_scopes_from_org_w(org: dict) -> list:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
 
         return directory
 
-    def prep_scope(report_scopes: list, o):
+    def prep_scope(report_scopes: list, o: dict):
         for s in report_scopes:
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
