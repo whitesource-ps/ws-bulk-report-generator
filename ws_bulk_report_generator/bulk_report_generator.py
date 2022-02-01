@@ -70,7 +70,7 @@ def init():
             if len(report_args_val_l) > 1:
                 extra_report_args_l[1] = [value.strip() for value in report_args_val_l]
             ret = {extra_report_args_l[0]: extra_report_args_l[1]}
-            logger.debug(f"Extra arguments passed to the report: {ret}")
+            logger.debug(f"Extra arguments passed to report: {ret}")
 
         return ret
 
@@ -103,12 +103,11 @@ def init():
 
 
 def get_reports_scopes() -> list:
-    orgs = None
     if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
         orgs = args.ws_conn.get_organizations()
-        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: {args.ws_token}")
-
-    orgs = [org['orgToken'] for org in orgs] if isinstance(orgs, list) else [args.ws_token]
+        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
+    else:
+        orgs = [args.ws_conn.get_organization_details()]
     scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] in args.exc_tokens]
@@ -136,20 +135,21 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
     return data, errors
 
 
-def get_reports_scopes_from_org_w(org_token: str) -> list:
+def get_reports_scopes_from_org_w(org: dict) -> list:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
 
         return directory
 
-    def prep_scope(report_scopes):
+    def prep_scope(report_scopes: list, o: dict):
         for s in report_scopes:
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
             s['ws_conn'] = org_conn
+            s['org_name'] = o['name']
 
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
@@ -160,26 +160,27 @@ def get_reports_scopes_from_org_w(org_token: str) -> list:
     global args
     org_conn = copy(args.ws_conn)
     org_conn.token_type = ws_constants.ScopeTypes.ORGANIZATION
-    org_conn.token = org_token
+    org_conn.token = org['orgToken']
+    scopes = []
+
     if args.inc_tokens:
         inc_tokens_l = [t.strip() for t in args.inc_tokens.split(',')]
-        scopes = []
         for token in inc_tokens_l:
             scopes.append(org_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
     else:
         try:
             scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
         except ws_errors.WsSdkServerInactiveOrg:
-            logger.warning(f"Organization: '{org_token}' is disabled and will be skipped")
+            logger.warning(f"Organization: '{org['name']}' is disabled and will be skipped")
 
-    prep_scope(scopes)
+    prep_scope(scopes, org)
 
     return scopes
 
 
 def generate_report_w(report_desc: dict):
     ret = None
-    logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}'")
+    logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
 
     output = args.report_method(report_desc['ws_conn'],
                                 token=(report_desc['token'], args.report_scope_type),
@@ -189,7 +190,7 @@ def generate_report_w(report_desc: dict):
         if output:
             ret = output
         else:
-            logging.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}'")
+            logger.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
     else:
         logger.debug(f"Saving report in: {report_desc['report_full_name']}")
         f = open(report_desc['report_full_name'], args.write_mode)
@@ -227,8 +228,6 @@ def generate_xlsx(output, full_path):
         logger.error(f"Report type is '{args.output_type}' but package 'XlsxWriter' is not installed. Make sure the tool is installed with optional dependency: 'pip install ws-{__tool_name__.replace('-', '_')}[xslx]' ")
         exit(-1)
 
-    # options = {'constant_memory': True}
-    # options = {'in_memory': True}
     options = None
     with xlsxwriter.Workbook(full_path, options=options) as workbook:
         worksheet = workbook.add_worksheet()

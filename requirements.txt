@@ -1,3 +1,3 @@
-ws-sdk~=0.8.7
+ws-sdk~=0.9.0.2
 DateTime~=4.3
-requests==2.27.0
+requests~=2.27.1
