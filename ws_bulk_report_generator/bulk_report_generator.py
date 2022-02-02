@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
+from typing import Tuple, List
 
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
@@ -102,7 +103,7 @@ def init():
     args.reports_error = []
 
 
-def get_reports_scopes() -> list:
+def get_reports_scopes() -> List[dict]:
     if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
         orgs = args.ws_conn.get_organizations()
         logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
@@ -112,10 +113,12 @@ def get_reports_scopes() -> list:
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] in args.exc_tokens]
 
+    logger.info(f"Found {len(scopes)} Scopes on")
+
     return scopes
 
 
-def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
+def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
     data = []
     errors = []
 
