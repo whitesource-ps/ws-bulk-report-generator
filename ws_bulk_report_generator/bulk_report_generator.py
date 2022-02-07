@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
+from typing import List, Tuple
 
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
@@ -102,7 +103,7 @@ def init():
     args.reports_error = []
 
 
-def get_reports_scopes() -> list:
+def get_reports_scopes() -> List[dict]:
     if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
         orgs = args.ws_conn.get_organizations()
         logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
@@ -115,7 +116,7 @@ def get_reports_scopes() -> list:
     return scopes
 
 
-def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
+def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
     data = []
     errors = []
 
@@ -135,7 +136,7 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> tuple:
     return data, errors
 
 
-def get_reports_scopes_from_org_w(org: dict) -> list:
+def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
@@ -150,12 +151,6 @@ def get_reports_scopes_from_org_w(org: dict) -> list:
             s['report_full_name'] = os.path.join(args.dir, filename)
             s['ws_conn'] = org_conn
             s['org_name'] = o['name']
-
-    def replace_invalid_chars(directory: str) -> str:
-        for char in ws_constants.INVALID_FS_CHARS:
-            directory = directory.replace(char, "_")
-
-        return directory
 
     global args
     org_conn = copy(args.ws_conn)
@@ -178,7 +173,7 @@ def get_reports_scopes_from_org_w(org: dict) -> list:
     return scopes
 
 
-def generate_report_w(report_desc: dict):
+def generate_report_w(report_desc: dict) -> list:
     ret = None
     logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
 
@@ -201,7 +196,7 @@ def generate_report_w(report_desc: dict):
     return ret
 
 
-def generate_xlsx(output, full_path):
+def generate_xlsx(output, full_path) -> List[dict]:
     def generate_row_data(col_names: list, d: dict) -> list:
         row_data_l = []
         for c in col_names:
@@ -212,7 +207,7 @@ def generate_xlsx(output, full_path):
 
         return row_data_l
 
-    def generate_table_labels(o: list) -> list:
+    def generate_table_labels(o: list) -> List[str]:
         col_names = args.report_method(WS, ws_constants.ReportsMetaData.COLUMN_NAMES)
         if not col_names:
             col_names = o[0].keys()
