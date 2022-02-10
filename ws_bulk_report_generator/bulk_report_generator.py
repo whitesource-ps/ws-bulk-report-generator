@@ -138,7 +138,7 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
     return data, errors
 
 
-def get_reports_scopes_from_org_w(org: dict) -> list:
+def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
             directory = directory.replace(char, "_")
@@ -181,7 +181,7 @@ def get_reports_scopes_from_org_w(org: dict) -> list:
     return scopes
 
 
-def generate_report_w(report_desc: dict):
+def generate_report_w(report_desc: dict) -> list:
     ret = None
     logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
 
@@ -204,7 +204,7 @@ def generate_report_w(report_desc: dict):
     return ret
 
 
-def generate_xlsx(output, full_path):
+def generate_xlsx(output, full_path) -> List[dict]:
     def generate_row_data(col_names: list, d: dict) -> list:
         row_data_l = []
         for c in col_names:
@@ -215,7 +215,7 @@ def generate_xlsx(output, full_path):
 
         return row_data_l
 
-    def generate_table_labels(o: list) -> list:
+    def generate_table_labels(o: list) -> List[str]:
         col_names = args.report_method(WS, ws_constants.ReportsMetaData.COLUMN_NAMES)
         if not col_names:
             col_names = o[0].keys()
