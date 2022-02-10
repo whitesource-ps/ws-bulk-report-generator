@@ -6,7 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
-from typing import List, Tuple
+from typing import Tuple, List
 
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
@@ -113,6 +113,8 @@ def get_reports_scopes() -> List[dict]:
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] in args.exc_tokens]
 
+    logger.info(f"Found {len(scopes)} Scopes on")
+
     return scopes
 
 
@@ -151,6 +153,12 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
             s['report_full_name'] = os.path.join(args.dir, filename)
             s['ws_conn'] = org_conn
             s['org_name'] = o['name']
+
+    def replace_invalid_chars(directory: str) -> str:
+        for char in ws_constants.INVALID_FS_CHARS:
+            directory = directory.replace(char, "_")
+
+        return directory
 
     global args
     org_conn = copy(args.ws_conn)
