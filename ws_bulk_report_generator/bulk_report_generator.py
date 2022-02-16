@@ -8,6 +8,7 @@ from copy import copy
 from datetime import datetime
 from typing import Tuple, List
 
+import xlsxwriter
 from ws_sdk import WS, ws_constants, ws_errors
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
@@ -224,12 +225,6 @@ def generate_xlsx(output, full_path) -> List[dict]:
             worksheet.write(0, c_num, c_name, cell_format)
 
         return col_names
-
-    try:
-        import xlsxwriter
-    except ImportError:
-        logger.error(f"Report type is '{args.output_type}' but package 'XlsxWriter' is not installed. Make sure the tool is installed with optional dependency: 'pip install ws-{__tool_name__.replace('-', '_')}[xslx]' ")
-        exit(-1)
 
     options = None
     with xlsxwriter.Workbook(full_path, options=options) as workbook:
