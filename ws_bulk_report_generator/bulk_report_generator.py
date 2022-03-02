@@ -166,11 +166,18 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
     org_conn.token_type = ws_constants.ScopeTypes.ORGANIZATION
     org_conn.token = org['orgToken']
     scopes = []
+    pre_scopes = []
 
     if args.inc_tokens:
         inc_tokens_l = [t.strip() for t in args.inc_tokens.split(',')]
         for token in inc_tokens_l:
-            scopes.append(org_conn.get_scope_by_token(token=token, token_type=args.report_scope_type))
+            pre_scopes.append(org_conn.get_scope_by_token(token=token, token_type=ws_constants.ScopeTypes.ORGANIZATION))
+        if ws_constants.ScopeTypes.PROJECT in args.report_scope_type:
+            for scope in pre_scopes:
+                scopes.extend(list(org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=True,
+                                                       product_token=scope.get("token"))))
+        else:
+            scopes = pre_scopes
     else:
         try:
             scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
