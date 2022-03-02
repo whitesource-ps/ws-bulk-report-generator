@@ -112,7 +112,7 @@ def get_reports_scopes() -> List[dict]:
         orgs = [args.ws_conn.get_organization_details()]
     scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
     if args.exc_tokens:
-        scopes = [s for s in scopes if s['token'] in args.exc_tokens]
+        scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
 
     logger.info(f"Found {len(scopes)} Scopes on")
 
