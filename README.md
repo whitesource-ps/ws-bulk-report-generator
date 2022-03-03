@@ -34,10 +34,13 @@ ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/
 ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
 
 # Execute Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization: 
-ws_bulk_report_generator -s product -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb"
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb"
 
 # Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
+
+# Execute Vulnerability report and get a unified Excel report on 2 specific products in the organization (-s project means the API calls run on the project level behind the scenes, used when timeouts in the API response): ): 
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unified_xlsx -i "<PRODCUCT_TOKEN_1> , <PRODCUCT_TOKEN_2> -s project"
 ```
 
 ## Full Usage:
