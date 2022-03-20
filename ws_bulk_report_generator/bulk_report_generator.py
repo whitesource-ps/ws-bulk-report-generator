@@ -197,6 +197,8 @@ def generate_report_w(report_desc: dict) -> list:
                                 token=(report_desc['token'], args.report_scope_type),
                                 report=args.is_binary,
                                 **args.extra_report_args_d)
+    for item in output:
+        item["orgName"] = report_desc.get("org_name")
     if args.output_type in UNIFIED:
         if output:
             ret = output
