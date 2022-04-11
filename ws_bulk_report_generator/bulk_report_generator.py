@@ -150,7 +150,7 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
         for s in report_scopes:
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
-            filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}.{args.report_extension}"
+            filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}_org_{o['name']}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
             s['ws_conn'] = org_conn
             s['org_name'] = o['name']
@@ -199,6 +199,8 @@ def generate_report_w(report_desc: dict) -> list:
                                 **args.extra_report_args_d)
     if args.output_type in UNIFIED:
         if output:
+            for item in output:
+                item.update({"org_name": report_desc.get("org_name")})
             ret = output
         else:
             logger.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
