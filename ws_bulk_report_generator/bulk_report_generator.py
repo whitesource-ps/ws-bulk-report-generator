@@ -6,6 +6,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
 from datetime import datetime
+from multiprocessing.pool import ThreadPool
 from typing import Tuple, List
 
 import xlsxwriter
@@ -164,7 +165,7 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
     global args
     org_conn = copy(args.ws_conn)
     org_conn.token_type = ws_constants.ScopeTypes.ORGANIZATION
-    org_conn.token = org['orgToken']
+    org_conn.token = org['token']
     scopes = []
     pre_scopes = []
 
@@ -189,7 +190,7 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
     return scopes
 
 
-def generate_report_w(report_desc: dict) -> list:
+def generate_unified_report_w(report_desc: dict) -> list:
     ret = None
     logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
 
@@ -197,19 +198,13 @@ def generate_report_w(report_desc: dict) -> list:
                                 token=(report_desc['token'], args.report_scope_type),
                                 report=args.is_binary,
                                 **args.extra_report_args_d)
-    if args.output_type in UNIFIED:
-        if output:
-            for item in output:
-                item.update({"org_name": report_desc.get("org_name")})
-            ret = output
-        else:
-            logger.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
+
+    if output:
+        for item in output:
+            item.update({"org_name": report_desc.get("org_name")})
+        ret = output
     else:
-        logger.debug(f"Saving report in: {report_desc['report_full_name']}")
-        f = open(report_desc['report_full_name'], args.write_mode)
-        report = output if args.is_binary else json.dumps(output)
-        f.write(report)
-        f.close()
+        logger.debug(f"Report '{args.report}' returned empty on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
 
     return ret
 
@@ -263,8 +258,28 @@ def write_unified_file(output: list):
     logger.info(f"Finished writing filename: '{full_path}'. Total time: {datetime.now() - start_time}")
 
 
+def generate_unified_reports(report_scopes: list):
+    return generic_thread_pool_m(ent_l=report_scopes, worker=generate_unified_report_w)
+
+
 def generate_reports(report_scopes: list):
-    return generic_thread_pool_m(ent_l=report_scopes, worker=generate_report_w)
+
+    def generate_report_w(report_desc: dict, args) -> list:
+        logger.info(f"Running '{args.report}' report on {report_desc['type']}: '{report_desc['name']}' on organization: '{report_desc['org_name']}'")
+
+        output = args.report_method(report_desc['ws_conn'],
+                                    token=(report_desc['token'], args.report_scope_type),
+                                    report=args.is_binary,
+                                    **args.extra_report_args_d)
+
+        logger.debug(f"Saving report in: {report_desc['report_full_name']}")
+        f = open(report_desc['report_full_name'], args.write_mode)
+        report = output if args.is_binary else json.dumps(output)
+        f.write(report)
+        f.close()
+
+    with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
+        thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
 
 
 def handle_unified_report(output: list):
@@ -281,10 +296,12 @@ def main():
     logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
     init()
     report_scopes = get_reports_scopes()
-    ret, errors = generate_reports(report_scopes)
 
     if args.output_type in UNIFIED:
+        ret, errors = generate_unified_reports(report_scopes)
         handle_unified_report(ret)
+    else:
+        generate_reports(report_scopes)
 
     logger.info(f"Finished running {__description__}. Run time: {datetime.now() - start_time}")
 
