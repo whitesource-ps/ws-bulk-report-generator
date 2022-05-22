@@ -249,11 +249,10 @@ def generate_xlsx(output, full_path) -> List[dict]:
         return col_names
 
     options = None
-    worksheet_set = set()
+    starting_row_num = 0
+    worksheet_names = dict()
     for entry in output:
-        worksheet_set.add(entry['org_name'])
-    
-    worksheet_names = {worksheet: 0 for worksheet in worksheet_set}
+        worksheet_names[entry['org_name']] = starting_row_num
 
     with xlsxwriter.Workbook(full_path, options=options) as workbook:
         worksheets = [workbook.add_worksheet(name) for name in worksheet_names]
