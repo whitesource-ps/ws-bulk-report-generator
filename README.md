@@ -27,6 +27,9 @@ Tool to execute reports on multiple products or projects.
 # Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
 
+# Generate Inventory Report (file per project) on all projects in two organizations in JSON format:
+ws_bulk_report_generator -u <USER_KEY> -l <ORG_TOKEN>,<ORG_TOKEN> -s project -r inventory -t json
+
 # Generate Risk Reports (PDF format) on all products (file per product) within organization:
 ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r risk  
 
@@ -45,7 +48,7 @@ ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unifi
 
 ## Full Usage:
 ```shell
-usage: ws_bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organization,globalOrganization}] -r
+usage: ws_bulk_report_generator [-h] -u WS_USER_KEY (-k WS_TOKEN | -l WS_TOKEN_LIST) [-y {organization,globalOrganization}] -r
                                 {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
 patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                                 [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS]
@@ -58,6 +61,8 @@ optional arguments:
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
                         WS Token
+  -l WS_TOKEN_LIST, --list-token WS_TOKEN_LIST
+                        WS Token List (Comma Separated)
   -y {organization,globalOrganization}, --token_type {organization,globalOrganization}
                         WS Token Type
   -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at

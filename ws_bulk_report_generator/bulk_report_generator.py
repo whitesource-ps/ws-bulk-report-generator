@@ -2,6 +2,7 @@ import argparse
 import concurrent
 import json
 import logging
+from multiprocessing.sharedctypes import Value
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
@@ -44,7 +45,9 @@ ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 def parse_args():
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
-    parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
+    token_group = parser.add_mutually_exclusive_group(required=True)
+    token_group.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str)
+    token_group.add_argument('-l', '--list-token', help="WS Token List (Comma Separated)", dest='ws_token_list', type=str)
     parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
@@ -78,18 +81,29 @@ def init():
         return ret
 
     global conf, args
-    if args.ws_token_type is None:
+    if not args.ws_token_type:
         # args.ws_token_type = WS.discover_token_type(user_key=args.ws_user_key, token=args.ws_user_key)    # TBD
         args.ws_token_type = ws_constants.ScopeTypes.ORGANIZATION
+        
+    if args.ws_token_list and args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+        logger.error(f"Using multiple global organization tokens is not supported")
+        SystemExit()
+    
+    if args.ws_token_list:
+        args.ws_tokens = args.ws_token_list.split(",")
+    else:
+        args.ws_tokens = args.ws_token.split(",")
+    
+    args.ws_conn_list = [WS(url=args.ws_url,
+                            user_key=args.ws_user_key,
+                            token=con_token,
+                            token_type=args.ws_token_type,
+                            tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
+                            timeout=3600) for con_token in args.ws_tokens]
 
-    args.ws_conn = WS(url=args.ws_url,
-                      user_key=args.ws_user_key,
-                      token=args.ws_token,
-                      token_type=args.ws_token_type,
-                      tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
-                      timeout=3600)
 
     args.report_method = f"get_{args.report}"
+    
     try:
         args.report_method = getattr(WS, args.report_method)
     except AttributeError:
@@ -103,21 +117,23 @@ def init():
     args.is_binary = True if args.output_type == BINARY else False
     args.write_mode = 'bw' if args.is_binary else 'w'
     args.reports_error = []
+        
 
 
-def get_reports_scopes() -> List[dict]:
-    if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
-        orgs = args.ws_conn.get_organizations()
-        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
-    else:
-        orgs = [args.ws_conn.get_organization_details()]
-    scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
-    if args.exc_tokens:
-        scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
+def get_reports_scopes() -> List[dict]:   
+                         
+        if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+            orgs = args.ws_conn.get_organizations()
+            logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
+        else:
+            orgs = [args.ws_conn.get_organization_details() for args.ws_conn in args.ws_conn_list]
+        scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
+        if args.exc_tokens:
+            scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
 
-    logger.info(f"Found {len(scopes)} Scopes on")
+        logger.info(f"Found {len(scopes)} Scopes on")
 
-    return scopes
+        return scopes
 
 
 def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
@@ -149,12 +165,13 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
 
     def prep_scope(report_scopes: list, o: dict):
         for s in report_scopes:
+            s['ws_conn'] = org_conn
+            s['org_name'] = o['name']
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}_org_{o['name']}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
-            s['ws_conn'] = org_conn
-            s['org_name'] = o['name']
+
 
     def replace_invalid_chars(directory: str) -> str:
         for char in ws_constants.INVALID_FS_CHARS:
@@ -226,24 +243,37 @@ def generate_xlsx(output, full_path) -> List[dict]:
             col_names = o[0].keys()
 
         for c_num, c_name in enumerate(col_names):
-            worksheet.write(0, c_num, c_name, cell_format)
+            for current_worksheet in worksheets:
+                current_worksheet.write(0, c_num, c_name, cell_format)
 
         return col_names
 
     options = None
+    worksheet_set = set()
+    for entry in output:
+        worksheet_set.add(entry['org_name'])
+    
+    worksheet_names = {worksheet: 0 for worksheet in worksheet_set}
+
     with xlsxwriter.Workbook(full_path, options=options) as workbook:
-        worksheet = workbook.add_worksheet()
+        worksheets = [workbook.add_worksheet(name) for name in worksheet_names]
         cell_format = workbook.add_format({'bold': True, 'italic': False})
         column_names = generate_table_labels(output)
 
-        for row_num, row_data in enumerate(output):
-            worksheet.write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
+        for row_data in output:
+            for index, worksheet in enumerate(worksheets):
+                if worksheet.get_name() == row_data['org_name']:
+                    current_worksheet = (worksheets[index])
+                    worksheet_names[row_data['org_name']] += 1
+                    current_worksheet.write_row(worksheet_names[row_data['org_name']], 0, generate_row_data(column_names, row_data))
 
-        logger.debug(f"Total number of Excel rows: {row_num}")
+                    
+        logger.debug(f"Total number of Excel rows: {sum([row_num for org_name, row_num in worksheet_names.items()])}")
 
 
 def write_unified_file(output: list):
-    report_name = f"{args.ws_conn.get_name()} - {args.report} report"
+    report_name = (f"{args.ws_conn.get_name()} - {args.report} report" if not args.ws_token_list else f"Multiple Org - {args.report} report")
+    
     filename = f"{report_name}.{args.report_extension}"
     full_path = os.path.join(args.dir, filename)
 
@@ -293,8 +323,11 @@ def main():
     global args, conf
     start_time = datetime.now()
     args = parse_args()
-    logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
+    
+    logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token if not args.ws_token_list else args.ws_token_list}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
+    
     init()
+    
     report_scopes = get_reports_scopes()
 
     if args.output_type in UNIFIED:
