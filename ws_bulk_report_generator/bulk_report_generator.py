@@ -123,7 +123,7 @@ def init():
 def get_reports_scopes() -> List[dict]:   
                          
         if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
-            orgs = args.ws_conn.get_organizations()
+            orgs = [args.ws_conn.get_organizations() for args.ws_conn in args.ws_conn_list][0]
             logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
         else:
             orgs = [args.ws_conn.get_organization_details() for args.ws_conn in args.ws_conn_list]
@@ -252,19 +252,19 @@ def generate_xlsx(output, full_path) -> List[dict]:
     starting_row_num = 0
     worksheet_names = dict()
     for entry in output:
-        worksheet_names[entry['org_name']] = starting_row_num
+        worksheet_names[entry['org_name'][:31]] = starting_row_num
 
     with xlsxwriter.Workbook(full_path, options=options) as workbook:
-        worksheets = [workbook.add_worksheet(name) for name in worksheet_names]
+        worksheets = [workbook.add_worksheet(name[:31]) for name in worksheet_names]
         cell_format = workbook.add_format({'bold': True, 'italic': False})
         column_names = generate_table_labels(output)
 
         for row_data in output:
             for index, worksheet in enumerate(worksheets):
-                if worksheet.get_name() == row_data['org_name']:
+                if worksheet.get_name() == row_data['org_name'][:31]:
                     current_worksheet = (worksheets[index])
-                    worksheet_names[row_data['org_name']] += 1
-                    current_worksheet.write_row(worksheet_names[row_data['org_name']], 0, generate_row_data(column_names, row_data))
+                    worksheet_names[current_worksheet.get_name()] += 1
+                    current_worksheet.write_row(worksheet_names[row_data['org_name'][:31]], 0, generate_row_data(column_names, row_data))
 
                     
         logger.debug(f"Total number of Excel rows: {sum([row_num for org_name, row_num in worksheet_names.items()])}")
