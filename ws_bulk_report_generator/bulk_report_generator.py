@@ -12,6 +12,7 @@ from typing import Tuple, List
 
 import xlsxwriter
 from ws_sdk import WS, ws_constants, ws_errors
+from ws_sdk.ws_utilities import convert_dict_list_to_dict
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
 is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
@@ -46,8 +47,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
     token_group = parser.add_mutually_exclusive_group(required=True)
-    token_group.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str)
-    token_group.add_argument('-l', '--list-token', help="WS Token List (Comma Separated)", dest='ws_token_list', type=str)
+    token_group.add_argument('-k', '--token', help="WS Token(s) (Comma Separated)", dest='ws_token', type=str)
     parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
@@ -81,25 +81,23 @@ def init():
         return ret
 
     global conf, args
+    args.ws_token = args.ws_token.split(",")
     if not args.ws_token_type:
         # args.ws_token_type = WS.discover_token_type(user_key=args.ws_user_key, token=args.ws_user_key)    # TBD
         args.ws_token_type = ws_constants.ScopeTypes.ORGANIZATION
         
-    if args.ws_token_list and args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+    if len(args.ws_token) > 1 and args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
         logger.error(f"Using multiple global organization tokens is not supported")
         SystemExit()
     
-    if args.ws_token_list:
-        args.ws_tokens = args.ws_token_list.split(",")
-    else:
-        args.ws_tokens = args.ws_token.split(",")
+
     
     args.ws_conn_list = [WS(url=args.ws_url,
                             user_key=args.ws_user_key,
                             token=con_token,
                             token_type=args.ws_token_type,
                             tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
-                            timeout=3600) for con_token in args.ws_tokens]
+                            timeout=3600) for con_token in args.ws_token]
 
 
     args.report_method = f"get_{args.report}"
@@ -123,8 +121,13 @@ def init():
 def get_reports_scopes() -> List[dict]:   
                          
         if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+            if len(args.ws_conn_list) > 1:
+                logger.error(f"More than one global organization has been provided. This is currently unsupported.")
+                SystemExit()
+                
             orgs = [args.ws_conn.get_organizations() for args.ws_conn in args.ws_conn_list][0]
-            logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
+            
+            logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
         else:
             orgs = [args.ws_conn.get_organization_details() for args.ws_conn in args.ws_conn_list]
         scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
@@ -271,7 +274,10 @@ def generate_xlsx(output, full_path) -> List[dict]:
 
 
 def write_unified_file(output: list):
-    report_name = (f"{args.ws_conn.get_name()} - {args.report} report" if not args.ws_token_list else f"Multiple Org - {args.report} report")
+    if len(args.ws_token) > 1:
+        report_name = f"Multiple Org - {args.report} report"
+    else: 
+        report_name = f"{args.ws_conn.get_name()} - {args.report} report" 
     
     filename = f"{report_name}.{args.report_extension}"
     full_path = os.path.join(args.dir, filename)
@@ -322,9 +328,7 @@ def main():
     global args, conf
     start_time = datetime.now()
     args = parse_args()
-    
-    logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token if not args.ws_token_list else args.ws_token_list}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
-    
+    logger.info(f"Start running {__description__} Version {__version__} on token {', '.join(args.ws_token.split(', '))}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
     init()
     
     report_scopes = get_reports_scopes()
