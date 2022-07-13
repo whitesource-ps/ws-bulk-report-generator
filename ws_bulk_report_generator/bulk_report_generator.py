@@ -262,6 +262,7 @@ def generate_xlsx(output, full_path) -> List[dict]:
                     if rows >= 1048576:
                         worksheets.append(workbook.add_worksheet())
                         worksheet_index += 1
+                        rows = 0
                     worksheets[worksheet_index].write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
 
                 logger.debug(f"Total number of Excel rows: {row_num}")
