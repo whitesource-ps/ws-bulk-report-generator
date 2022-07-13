@@ -39,7 +39,8 @@ JSON = 'json'
 BINARY = 'binary'
 UNIFIED_JSON = "unified_json"
 UNIFIED_XLSX = "unified_xlsx"
-UNIFIED = [UNIFIED_JSON, UNIFIED_XLSX]
+UNIFIED_XLSX_PER_SHEET = "xlsx_org_per_sheet"
+UNIFIED = [UNIFIED_JSON, UNIFIED_XLSX, UNIFIED_XLSX_PER_SHEET]
 ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 
 
@@ -48,7 +49,7 @@ def parse_args():
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
     token_group = parser.add_mutually_exclusive_group(required=True)
     token_group.add_argument('-k', '--token', help="WS Token(s) (Comma Separated)", dest='ws_token', type=str)
-    parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
+    parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=ws_constants.ScopeTypes.ORGANIZATION)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
     parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PRODUCT)
@@ -82,9 +83,6 @@ def init():
 
     global conf, args
     args.ws_token = args.ws_token.split(",")
-    if not args.ws_token_type:
-        # args.ws_token_type = WS.discover_token_type(user_key=args.ws_user_key, token=args.ws_user_key)    # TBD
-        args.ws_token_type = ws_constants.ScopeTypes.ORGANIZATION
         
     if len(args.ws_token) > 1 and args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
         logger.error(f"Using multiple global organization tokens is not supported")
@@ -250,27 +248,54 @@ def generate_xlsx(output, full_path) -> List[dict]:
                 current_worksheet.write(0, c_num, c_name, cell_format)
 
         return col_names
+    
+    def generate_flat_workbook():
+        global worksheets, cell_format
+        worksheets = list()
+        worksheet_index = rows = 0
+        with xlsxwriter.Workbook(full_path, options=options) as workbook:
+                worksheets.append(workbook.add_worksheet())
+                cell_format = workbook.add_format({'bold': True, 'italic': False})
+                column_names = generate_table_labels(output)
+
+                for row_num, row_data in enumerate(output):
+                    if rows >= 1048576:
+                        worksheets.append(workbook.add_worksheet())
+                        worksheet_index += 1
+                    worksheets[worksheet_index].write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
+
+                logger.debug(f"Total number of Excel rows: {row_num}")
+
+    
+    def generate_workbook_org_per_worksheet():
+        global worksheets, cell_format
+        starting_row_num = 0
+        worksheet_names = dict()
+        worksheets = list()
+        
+        for entry in output:
+            worksheet_names[entry['org_name'][:31]] = starting_row_num
+
+        with xlsxwriter.Workbook(full_path, options=options) as workbook:
+            worksheets = [workbook.add_worksheet(name[:31]) for name in worksheet_names]
+            cell_format = workbook.add_format({'bold': True, 'italic': False})
+            column_names = generate_table_labels(output)
+
+            for row_data in output:
+                for index, worksheet in enumerate(worksheets):
+                    if worksheet.get_name() == row_data['org_name'][:31]:
+                        current_worksheet = worksheets[index]
+                        worksheet_names[current_worksheet.get_name()] += 1
+                        current_worksheet.write_row(worksheet_names[row_data['org_name'][:31]], 0, generate_row_data(column_names, row_data))
+                        
+            logger.debug(f"Total number of Excel rows: {sum([row_num for org_name, row_num in worksheet_names.items()])}")
 
     options = None
-    starting_row_num = 0
-    worksheet_names = dict()
-    for entry in output:
-        worksheet_names[entry['org_name'][:31]] = starting_row_num
-
-    with xlsxwriter.Workbook(full_path, options=options) as workbook:
-        worksheets = [workbook.add_worksheet(name[:31]) for name in worksheet_names]
-        cell_format = workbook.add_format({'bold': True, 'italic': False})
-        column_names = generate_table_labels(output)
-
-        for row_data in output:
-            for index, worksheet in enumerate(worksheets):
-                if worksheet.get_name() == row_data['org_name'][:31]:
-                    current_worksheet = (worksheets[index])
-                    worksheet_names[current_worksheet.get_name()] += 1
-                    current_worksheet.write_row(worksheet_names[row_data['org_name'][:31]], 0, generate_row_data(column_names, row_data))
-
-                    
-        logger.debug(f"Total number of Excel rows: {sum([row_num for org_name, row_num in worksheet_names.items()])}")
+    
+    if args.output_type == UNIFIED_XLSX_PER_SHEET:
+        generate_workbook_org_per_worksheet()
+    else:
+        generate_flat_workbook()
 
 
 def write_unified_file(output: list):
@@ -283,7 +308,7 @@ def write_unified_file(output: list):
     full_path = os.path.join(args.dir, filename)
 
     start_time = datetime.now()
-    if args.output_type == UNIFIED_XLSX:
+    if args.output_type == UNIFIED_XLSX or args.output_type == UNIFIED_XLSX_PER_SHEET:
         logger.info("Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
