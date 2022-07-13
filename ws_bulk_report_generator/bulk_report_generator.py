@@ -47,8 +47,7 @@ ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 def parse_args():
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
-    token_group = parser.add_mutually_exclusive_group(required=True)
-    token_group.add_argument('-k', '--token', help="WS Token(s) (Comma Separated)", dest='ws_token', type=str)
+    parser.add_argument('-k', '--token', help="WS Token(s) (Comma Separated)", dest='ws_token', type=str)
     parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=ws_constants.ScopeTypes.ORGANIZATION)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
