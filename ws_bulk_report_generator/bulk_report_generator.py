@@ -1,6 +1,7 @@
 import argparse
 import concurrent
 import json
+from lib2to3.pytree import convert
 import logging
 from multiprocessing.sharedctypes import Value
 import os
@@ -257,38 +258,35 @@ def generate_xlsx(output, full_path) -> List[dict]:
                 cell_format = workbook.add_format({'bold': True, 'italic': False})
                 column_names = generate_table_labels(output)
 
-                for row_num, row_data in enumerate(output):
+                for _, row_data in enumerate(output):
                     if rows >= 1048576:
                         worksheets.append(workbook.add_worksheet())
                         worksheet_index += 1
                         rows = 0
-                    worksheets[worksheet_index].write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
+                    worksheets[worksheet_index].write_row(rows + 1, 0, generate_row_data(column_names, row_data))
+                    rows += 1
 
-                logger.debug(f"Total number of Excel rows: {row_num}")
+                logger.debug(f"Total number of Excel rows: {rows}")
 
     
     def generate_workbook_org_per_worksheet():
         global worksheets, cell_format
         starting_row_num = 0
-        worksheet_names = dict()
-        worksheets = list()
-        
-        for entry in output:
-            worksheet_names[entry['org_name'][:31]] = starting_row_num
 
         with xlsxwriter.Workbook(full_path, options=options) as workbook:
-            worksheets = [workbook.add_worksheet(name[:31]) for name in worksheet_names]
+            
+            worksheet_names = {key[:31]: starting_row_num for key in convert_dict_list_to_dict(lst=output, key_desc="org_name").keys()}    #This is technically O(2N) -> Simplifies to O(N)
+            worksheets = [workbook.add_worksheet(name) for name in worksheet_names.keys()]
+                
             cell_format = workbook.add_format({'bold': True, 'italic': False})
             column_names = generate_table_labels(output)
 
-            for row_data in output:
-                for index, worksheet in enumerate(worksheets):
-                    if worksheet.get_name() == row_data['org_name'][:31]:
-                        current_worksheet = worksheets[index]
-                        worksheet_names[current_worksheet.get_name()] += 1
-                        current_worksheet.write_row(worksheet_names[row_data['org_name'][:31]], 0, generate_row_data(column_names, row_data))
+            for row_data in output:             #This is now O(N) due to the fact that we don't have nested an if inside of the for loop
+                current_worksheet = workbook.get_worksheet_by_name(row_data['org_name'][:31])
+                worksheet_names[current_worksheet.get_name()] += 1
+                current_worksheet.write_row(worksheet_names[current_worksheet.get_name()], 0, generate_row_data(column_names, row_data))
                         
-            logger.debug(f"Total number of Excel rows: {sum([row_num for org_name, row_num in worksheet_names.items()])}")
+            logger.debug(f"Total number of Excel rows: {sum(worksheet_names.values())}")
 
     options = None
     
