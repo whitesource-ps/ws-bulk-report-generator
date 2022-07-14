@@ -1,7 +1,6 @@
 import argparse
 import concurrent
 import json
-from lib2to3.pytree import convert
 import logging
 from multiprocessing.sharedctypes import Value
 import os
