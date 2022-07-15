@@ -227,7 +227,10 @@ def generate_xlsx(output, full_path) -> List[dict]:
         for c in col_names:
             cell_val = d.get(c)
             if isinstance(cell_val, (list, dict)):
-                cell_val = json.dumps(cell_val)
+                if c != "topFix":
+                    cell_val = json.dumps(cell_val)
+                else:
+                    cell_val = cell_val['fixResolution']
             row_data_l.append(cell_val)
 
         return row_data_l
