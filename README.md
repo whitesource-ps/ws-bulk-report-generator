@@ -23,12 +23,12 @@ Tool to execute reports on multiple products or projects.
 * **Note**:  If installing packages as a non-root be sure to include the path to the executables within the Operating System paths.  
 
 ## Examples:
-```shell
+```bash
 # Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
 
 # Generate Inventory Report (file per project) on all projects in two organizations in JSON format:
-ws_bulk_report_generator -u <USER_KEY> -l <ORG_TOKEN>,<ORG_TOKEN> -s project -r inventory -t json
+ws_bulk_report_generator -a saas -k <ORG_TOKEN>,<ORG_TOKEN> -u <USER_KEY> -s project -r inventory -t json
 
 # Generate Risk Reports (PDF format) on all products (file per product) within organization:
 ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r risk  
@@ -37,39 +37,38 @@ ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/
 ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
 
 # Execute Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization: 
-ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb"
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x "lib_name=libwebp-dev_0.6.1-2_amd64.deb"
 
 # Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
-ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
+ws_bulk_report_generator -u <USER_KEY> -k <GLOBAL_ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
 
-# Execute Vulnerability report and get a unified Excel report on 2 specific products in the organization (-s project means the API calls run on the project level behind the scenes, used when timeouts in the API response): ): 
-ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unified_xlsx -i "<PRODCUCT_TOKEN_1> , <PRODCUCT_TOKEN_2> -s project"
+# Execute Vulnerability report and get a unified Excel report on 2 specific products in the organization (-s project means the API calls run on the project level behind the scenes, used when timeouts in the API response) 
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unified_xlsx -i "<PRODUCT_TOKEN_1> , <PRODUCT_TOKEN_2>" -s project
+
+# Get a vulnerability report for every single organization in a global organization. Separating each entry into 1 sheet per org for organization purposes.
+ws_bulk_report_generator -u <USER_KEY> -k <GLOBAL_ORG_TOKEN> -r vulnerability -t xlsx_org_per_sheet -y globalOrganization
 ```
 
 ## Full Usage:
-```shell
-usage: ws_bulk_report_generator [-h] -u WS_USER_KEY (-k WS_TOKEN | -l WS_TOKEN_LIST) [-y {organization,globalOrganization}] -r
-                                {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_com
-patibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
-                                [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS]
+```
+usage: bulk_report_generator.py [-h] -u WS_USER_KEY [-k WS_TOKEN] [-y {organization,globalOrganization}] -r
+                                {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
+                                [-t {unified_json,unified_xlsx,xlsx_org_per_sheet,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS]        
+                                [-e EXC_TOKENS]
 
-WhiteSource Bulk Reports Generator
+WS Bulk Report Generator
 
 optional arguments:
   -h, --help            show this help message and exit
   -u WS_USER_KEY, --userKey WS_USER_KEY
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
-                        WS Token
-  -l WS_TOKEN_LIST, --list-token WS_TOKEN_LIST
-                        WS Token List (Comma Separated)
+                        WS Token(s) (Comma Separated)
   -y {organization,globalOrganization}, --token_type {organization,globalOrganization}
                         WS Token Type
-  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at
-tributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in
-_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
+  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
                         Report Type to produce
-  -t {unified_json,unified_xlsx,binary,json}, --outputType {unified_json,unified_xlsx,binary,json}
+  -t {unified_json,unified_xlsx,xlsx_org_per_sheet,binary,json}, --outputType {unified_json,unified_xlsx,xlsx_org_per_sheet,binary,json}
                         Type of output
   -s {project,product}, --ReportScope {project,product}
                         Scope of report
