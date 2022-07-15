@@ -88,7 +88,7 @@ def init():
         SystemExit()
     
 
-    
+    # This creates a WS Object per token that we have. That way we can run more than one request.
     args.ws_conn_list = [WS(url=args.ws_url,
                             user_key=args.ws_user_key,
                             token=con_token,
@@ -115,25 +115,23 @@ def init():
         
 
 
-def get_reports_scopes() -> List[dict]:   
-                         
-        if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
-            if len(args.ws_conn_list) > 1:
-                logger.error(f"More than one global organization has been provided. This is currently unsupported.")
-                SystemExit()
-                
-            orgs = [args.ws_conn.get_organizations() for args.ws_conn in args.ws_conn_list][0]
-            
-            logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
-        else:
-            orgs = [args.ws_conn.get_organization_details() for args.ws_conn in args.ws_conn_list]
-        scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
-        if args.exc_tokens:
-            scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
+def get_reports_scopes() -> List[dict]:
+    orgs = list()
 
-        logger.info(f"Found {len(scopes)} Scopes on")
+    if args.ws_token_type != ws_constants.ScopeTypes.GLOBAL:
+        for args.ws_conn in args.ws_conn_list:                               # Refactored this for debugging purposes
+            orgs.append(args.ws_conn.get_organization_details())
+    else:
+        orgs.append(args.ws_conn_list[0].get_organizations())
+        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
 
-        return scopes
+    scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
+    if args.exc_tokens:
+        scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
+
+    logger.info(f"Found {len(scopes)} Scopes")
+
+    return scopes
 
 
 def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
@@ -251,21 +249,23 @@ def generate_xlsx(output, full_path) -> List[dict]:
     def generate_flat_workbook():
         global worksheets, cell_format
         worksheets = list()
-        worksheet_index = rows = 0
+        worksheet_index = total_rows = rows = 0
         with xlsxwriter.Workbook(full_path, options=options) as workbook:
                 worksheets.append(workbook.add_worksheet())
                 cell_format = workbook.add_format({'bold': True, 'italic': False})
                 column_names = generate_table_labels(output)
 
-                for _, row_data in enumerate(output):
-                    if rows >= 1048576:
+                for row_data in output:
+                    if rows > 1048575:
                         worksheets.append(workbook.add_worksheet())
                         worksheet_index += 1
+                        total_rows += rows
                         rows = 0
-                    worksheets[worksheet_index].write_row(rows + 1, 0, generate_row_data(column_names, row_data))
                     rows += 1
-
-                logger.debug(f"Total number of Excel rows: {rows}")
+                    worksheets[worksheet_index].write_row(rows, 0, generate_row_data(column_names, row_data))
+                
+                total_rows += rows
+                logger.debug(f"Total number of Excel rows: {total_rows}")
 
     
     def generate_workbook_org_per_worksheet():
@@ -329,11 +329,12 @@ def generate_reports(report_scopes: list):
                                     report=args.is_binary,
                                     **args.extra_report_args_d)
 
-        logger.debug(f"Saving report in: {report_desc['report_full_name']}")
-        f = open(report_desc['report_full_name'], args.write_mode)
         report = output if args.is_binary else json.dumps(output)
-        f.write(report)
-        f.close()
+        if report != '[]':
+            logger.debug(f"Saving report in: {report_desc['report_full_name']}")
+            f = open(report_desc['report_full_name'], args.write_mode)
+            f.write(report)
+            f.close()
 
     with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
         thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
