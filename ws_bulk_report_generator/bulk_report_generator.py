@@ -268,16 +268,19 @@ def generate_xlsx(output, full_path) -> List[dict]:
     def generate_workbook_org_per_worksheet():
         global worksheets, cell_format
         starting_row_num = 0
+        worksheets = list()
+        worksheet_names = dict()
 
         with xlsxwriter.Workbook(full_path, options=options) as workbook:
             
-            worksheet_names = {key[:31]: starting_row_num for key in convert_dict_list_to_dict(lst=output, key_desc="org_name").keys()}    #This is technically O(2N) -> Simplifies to O(N)
-            worksheets = [workbook.add_worksheet(name) for name in worksheet_names.keys()]
+            for key in convert_dict_list_to_dict(lst=output, key_desc="org_name").keys():    #This is technically O(2N) due to convert method using a for loop -> Simplifies to O(N)
+                worksheet_names[key[:31]] = starting_row_num
+                worksheets.append(workbook.add_worksheet(key[:31]))
                 
             cell_format = workbook.add_format({'bold': True, 'italic': False})
             column_names = generate_table_labels(output)
 
-            for row_data in output:             #This is now O(N) due to the fact that we don't have nested an if inside of the for loop
+            for row_data in output:             #This is now O(N) due to the fact that we don't have a nested if inside of the for loop
                 current_worksheet = workbook.get_worksheet_by_name(row_data['org_name'][:31])
                 worksheet_names[current_worksheet.get_name()] += 1
                 current_worksheet.write_row(worksheet_names[current_worksheet.get_name()], 0, generate_row_data(column_names, row_data))
@@ -354,7 +357,7 @@ def main():
     report_scopes = get_reports_scopes()
 
     if args.output_type in UNIFIED:
-        ret, errors = generate_unified_reports(report_scopes)
+        ret, _ = generate_unified_reports(report_scopes)
         handle_unified_report(ret)
     else:
         generate_reports(report_scopes)
