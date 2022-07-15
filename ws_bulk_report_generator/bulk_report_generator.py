@@ -2,6 +2,7 @@ import argparse
 import concurrent
 import json
 import logging
+import re
 from multiprocessing.sharedctypes import Value
 import os
 from concurrent.futures import ThreadPoolExecutor
@@ -31,6 +32,8 @@ logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
 logger.propagate = False
+invalid_chars = ws_constants.INVALID_FS_CHARS
+invalid_chars[invalid_chars.index('"')] = '\\"'
 
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
@@ -125,7 +128,7 @@ def get_reports_scopes() -> List[dict]:
         orgs.append(args.ws_conn_list[0].get_organizations())
         logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
 
-    scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
+    scopes, _ = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
 
@@ -155,10 +158,11 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
 
 
 def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
-    def replace_invalid_chars(directory: str) -> str:
-        for char in ws_constants.INVALID_FS_CHARS:
-            directory = directory.replace(char, "_")
 
+    def replace_invalid_chars(directory: str) -> str:           # Changed this from O(N) to O(1)
+        regex = f'[{"".join(invalid_chars)}]+'
+        subst = "_"
+        directory = re.sub(regex, subst, directory)
         return directory
 
     def prep_scope(report_scopes: list, o: dict):
@@ -169,13 +173,6 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}_org_{o['name']}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
-
-
-    def replace_invalid_chars(directory: str) -> str:
-        for char in ws_constants.INVALID_FS_CHARS:
-            directory = directory.replace(char, "_")
-
-        return directory
 
     global args
     org_conn = copy(args.ws_conn)
