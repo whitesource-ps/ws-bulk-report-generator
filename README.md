@@ -26,21 +26,29 @@ Tool to execute reports on multiple products or projects.
 ```shell
 # Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -s project -r due_diligence -t json 
-
 # Generate Risk Reports (PDF format) on all products (file per product) within organization:
 ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r risk  
-
 # Search for log4j 3 recent vulnerabilities in all the organization and get output in a single JSON:
 ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"
-
 # Execute Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization: 
-ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb"
-
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb
 # Execute Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organization): 
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o /tmp/reports/ -r inventory -t unified_json -y globalOrganization
-
 # Execute Vulnerability report and get a unified Excel report on 2 specific products in the organization (-s project means the API calls run on the project level behind the scenes, used when timeouts in the API response): ): 
 ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unified_xlsx -i "<PRODCUCT_TOKEN_1> , <PRODCUCT_TOKEN_2> -s project"
+
+
+NEW! USING ASYNCHRONOUS API for big organizations failing with timeouts
+Supported reports: inventory, vulnerability, alerts, plugin request history] 
+
+# Generate Vulnerability report using asynchronous API call in excel format:
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t binary -c True
+# Search for log4j 3 recent vulnerabilities in all the organization using asynchronous API call in JSON format:
+ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r vulnerability -t json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104" -c True
+# Generate Alerts report using asynchronous API call in excel format:
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r alerts -t binary -c True
+# Generate Vulnerability report using asynchronous API call in excel format:
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r request_history -t binary -c True -x plugin=True
 ```
 
 ## Full Usage:
@@ -78,4 +86,6 @@ _house,risk,library_location,license_compatibility,due_diligence,attributes,attr
                         Included token (Default: All)
   -e EXC_TOKENS, --excludedTokens EXC_TOKENS
                         Excluded token (Default: None)
+  -c ASYNCR, --asynchronousCalls ASYNCR
+                        Asynchronous API (Default: False)
 ```

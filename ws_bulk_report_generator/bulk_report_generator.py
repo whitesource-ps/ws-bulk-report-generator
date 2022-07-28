@@ -10,7 +10,9 @@ from multiprocessing.pool import ThreadPool
 from typing import Tuple, List
 
 import xlsxwriter
+from numpy.distutils.fcompiler import str2bool
 from ws_sdk import WS, ws_constants, ws_errors
+
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
 is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
@@ -29,7 +31,6 @@ logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
 logger.propagate = False
-
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
@@ -54,6 +55,7 @@ def parse_args():
     parser.add_argument('-x', '--extraReportArguments', help="Extra arguments (key=value) to pass the report", dest='extra_report_args', type=str)
     parser.add_argument('-i', '--includedTokens', help="Included token (Default: All)", dest='inc_tokens', default=[])
     parser.add_argument('-e', '--excludedTokens', help="Excluded token (Default: None)", dest='exc_tokens', default=[])
+    parser.add_argument('-c', '--asynchronousCalls', help="Asynchronous API (Default: False)", dest='asyncr', default=False, type=str2bool)
 
     return parser.parse_args()
 
@@ -103,6 +105,11 @@ def init():
     args.is_binary = True if args.output_type == BINARY else False
     args.write_mode = 'bw' if args.is_binary else 'w'
     args.reports_error = []
+
+    async_list = ['inventory', 'vulnerability', 'alerts', 'request_history']
+    if args.asyncr and args.report not in async_list:
+        logger.error(f"asynchronous report mode is only supported for {async_list}")
+        exit()
 
 
 def get_reports_scopes() -> List[dict]:
@@ -181,7 +188,11 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
             scopes = pre_scopes
     else:
         try:
-            scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
+            if args.extra_report_args_d.get('plugin') == str(True):
+                scopes = org_conn.get_scopes(scope_type=ws_constants.ScopeTypes.ORGANIZATION)
+                args.report_scope_type = ws_constants.ScopeTypes.ORGANIZATION
+            else:
+                scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
         except ws_errors.WsSdkServerInactiveOrg:
             logger.warning(f"Organization: '{org['name']}' is disabled and will be skipped")
 
@@ -269,15 +280,40 @@ def generate_reports(report_scopes: list):
 
         output = args.report_method(report_desc['ws_conn'],
                                     token=(report_desc['token'], args.report_scope_type),
+                                    asyncr=args.asyncr,
                                     report=args.is_binary,
                                     **args.extra_report_args_d)
 
-        logger.debug(f"Saving report in: {report_desc['report_full_name']}")
-        f = open(report_desc['report_full_name'], args.write_mode)
-        report = output if args.is_binary else json.dumps(output)
-        f.write(report)
-        f.close()
+        if isinstance(output, dict) and [val for key, val in output.items() if 'asyncReport' in key]:
+            handle_reports(output, report_desc)
+        else:
+            write_report(output, report_desc)
 
+    def handle_reports(output, report_desc):
+        if isinstance(output, dict):
+            for key, value in output.items():
+                if "Failed" in key:
+                    print("Failed to pull the report")
+                    return
+                else:
+                    line = report_desc['type'] + '_' + key.split("asyncReport: ", 1)[1]
+                    index = line.find('.')
+                    name = line[:index] + f"_org_{report_desc['org_name']}" + line[index:]
+                    report_desc['report_full_name'] = os.path.join(args.dir, name)
+                    output = value
+                    write_report(output, report_desc)
+
+    def write_report(output, report_desc):
+        if output:
+            logger.debug(f"Saving report in: {report_desc['report_full_name']}")
+            f = open(report_desc['report_full_name'], args.write_mode)
+            report = output if args.is_binary else json.dumps(output)
+            f.write(report)
+            f.close()
+
+    global PROJECT_PARALLELISM_LEVEL
+    if args.asyncr:
+        PROJECT_PARALLELISM_LEVEL = 1
     with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
         thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
 
