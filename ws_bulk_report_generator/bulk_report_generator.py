@@ -10,7 +10,6 @@ from multiprocessing.pool import ThreadPool
 from typing import Tuple, List
 
 import xlsxwriter
-from numpy.distutils.fcompiler import str2bool
 from ws_sdk import WS, ws_constants, ws_errors
 
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
@@ -58,6 +57,28 @@ def parse_args():
     parser.add_argument('-c', '--asynchronousCalls', help="Asynchronous API (Default: False)", dest='asyncr', default=False, type=str2bool)
 
     return parser.parse_args()
+
+
+def str2bool(s):
+    if isinstance(s, str):
+        return strtobool(s)
+    return bool(s)
+
+
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 
 def init():
