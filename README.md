@@ -39,7 +39,7 @@ ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t unifi
 
 
 NEW! USING ASYNCHRONOUS API for big organizations failing with timeouts
-Supported reports: inventory, vulnerability, alerts, plugin request history] 
+Supported reports: inventory, vulnerability, alerts, plugin request history
 
 # Generate Vulnerability report using asynchronous API call in excel format:
 ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t binary -c True
