@@ -47,8 +47,10 @@ ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r vulnerability -t binar
 ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r vulnerability -t json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104" -c True
 # Generate Alerts report using asynchronous API call in excel format:
 ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r alerts -t binary -c True
-# Generate Vulnerability report using asynchronous API call in excel format:
+# Generate Plugin Request history report using asynchronous API call in excel format (unlimited results):
 ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r request_history -t binary -c True -x plugin=True
+# Generate Inventory report using asynchronous API call in excel format:
+ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -r inventory -t binary -c True
 ```
 
 ## Full Usage:
