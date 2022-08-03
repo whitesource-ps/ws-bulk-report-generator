@@ -18,9 +18,8 @@ Tool to execute reports on multiple products or projects.
 
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
->**Note**:  If installing packages as a non-root user, be sure to include the path to the executables within the Operating System paths.
 2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -s <REPORT_SCOPE>`
->**Note**:  If installing packages as a non-root be sure to include the path to the executables within the Operating System paths.  
+>**Note**:  If installing packages as a non-root user, be sure to include the path to the executables within the Operating System paths.
 
 ## Examples:
 Generate Due Diligence Reports (file per project) on all project within organization in JSON format (reports will be saved in the working dir):  
