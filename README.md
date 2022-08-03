@@ -62,7 +62,7 @@ Generate Vulnerability report using asynchronous API call in excel format:
 ---
 
 Search for log4j 3 recent vulnerabilities in all the organization using asynchronous API call in JSON format:  
-`-x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104" -c True`  
+`ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r vulnerability -t json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104" -c True`  
 
 ---
 
