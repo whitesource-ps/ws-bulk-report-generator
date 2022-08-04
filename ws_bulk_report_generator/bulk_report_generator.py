@@ -31,7 +31,7 @@ sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
 logger.propagate = False
 
-PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
+PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "1"))
 conf = args = None
 JSON = 'json'
 BINARY = 'binary'
@@ -209,9 +209,10 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
             scopes = pre_scopes
     else:
         try:
-            if args.extra_report_args_d.get('plugin') == str(True):
-                scopes = org_conn.get_scopes(scope_type=ws_constants.ScopeTypes.ORGANIZATION)
-                args.report_scope_type = ws_constants.ScopeTypes.ORGANIZATION
+            if args.extra_report_args_d.get('plugin'):
+                if strtobool(args.extra_report_args_d.get('plugin')):
+                    scopes = org_conn.get_scopes(scope_type=ws_constants.ScopeTypes.ORGANIZATION)
+                    args.report_scope_type = ws_constants.ScopeTypes.ORGANIZATION
             else:
                 scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
         except ws_errors.WsSdkServerInactiveOrg:
@@ -304,25 +305,23 @@ def generate_reports(report_scopes: list):
                                     asyncr=args.asyncr,
                                     report=args.is_binary,
                                     **args.extra_report_args_d)
-
-        if isinstance(output, dict) and [val for key, val in output.items() if 'asyncReport' in key]:
-            handle_reports(output, report_desc)
+        if isinstance(output, dict):
+            for k, v in output.items():
+                if 'asyncReport' in k:
+                    handle_async_reports_names(output, report_desc)
+                elif 'Failed' in k:
+                    return
         else:
             write_report(output, report_desc)
 
-    def handle_reports(output, report_desc):
-        if isinstance(output, dict):
-            for key, value in output.items():
-                if "Failed" in key:
-                    print("Failed to pull the report")
-                    return
-                else:
-                    line = report_desc['type'] + '_' + key.split("asyncReport: ", 1)[1]
-                    index = line.find('.')
-                    name = line[:index] + f"_org_{report_desc['org_name']}" + line[index:]
-                    report_desc['report_full_name'] = os.path.join(args.dir, name)
-                    output = value
-                    write_report(output, report_desc)
+    def handle_async_reports_names(output, report_desc):
+        for key, value in output.items():
+            line = report_desc['type'] + '_' + key.split("asyncReport: ", 1)[1]
+            index = line.find('.')
+            name = line[:index] + f"_org_{report_desc['org_name']}" + line[index:]
+            report_desc['report_full_name'] = os.path.join(args.dir, name)
+            output = value
+            write_report(output, report_desc)
 
     def write_report(output, report_desc):
         if output:
