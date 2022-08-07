@@ -9,6 +9,7 @@ CLI Tool to generate reports on multiple products or projects.
 * If Included scopes (via `-i, --includedTokens`) is not specified, the tool will run reports on **all** scopes.
 * Report data is exported by default in binary format (i.e. Excel or PDF) or JSON.
 * Recommended using -o parameter for specifying output-dir. Otherwise, the output stored in the running dir (which is pip install cmd work with and it depends on your OS)
+---
 
 ## Supported Operating Systems
 - **Linux (Bash):**	CentOS, Debian, Ubuntu, RedHat
