@@ -60,7 +60,8 @@ Generate Vulnerability report and get a unified Excel report on 2 specific produ
 
 
 >**NEW!** USING ASYNCHRONOUS API for large organizations.  
-Supported reports: `inventory`, `vulnerability`, `alerts`, `plugin request history`  
+Supported reports: `inventory`, `vulnerability`, `alerts`, `plugin request history`
+The TIMEOUT is 6 minutes, meaning it's checking for the report status READY for 6 min before moving to the next one. If it's not ready in 6 minutes, the tool logs the reportStatusId for manually checking the status (and downloading), and moves along. The timeout will be configurable in the next releases.
 
 Generate Vulnerability report using asynchronous API calls in Excel format:  
 `ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -o <OUTPUT_PATH> -r vulnerability -t binary -c True`  
