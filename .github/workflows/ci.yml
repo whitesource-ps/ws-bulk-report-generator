@@ -3,6 +3,9 @@ on:
   push:
     branches:
       - '**'
+      - '!ws-iac-scan-results/**'
+      - '!whitesource-remediate/master-all**'
+      - '!whitesource/migrate-configuration**'
     tags:
       - '*'
   schedule:
@@ -12,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.7, 3.8, 3.9]
+        python-version: [3.8, 3.9]
     steps:
       - name: Set Environment Variables
         run: |
@@ -27,7 +30,7 @@ jobs:
               echo "RELEASE=true" >> $GITHUB_ENV
             fi
           fi
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set release version
         run: |
           sed -E -i  "s/^__version__ = \"[a-z0-9\.]+\"/__version__ = \"$VERSION\"/g"  ${{ env.TOOL_DIR }}/_version.py
@@ -35,7 +38,7 @@ jobs:
 #        with:
 #          branch: ${{ github.head_ref }}
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
       - name: Change to last ws-sdk version on odd days (Mon, Wed, Fri, Sun)
@@ -67,9 +70,11 @@ jobs:
       - name: Full Test (due diligence seperate files)
         run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r due_diligence
       - name: Full Test (vulnerability report filtered with single CVE on product level unifed json)
-        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }}  -r vulnerability -t unified_json -x vulnerability_names=CVE-2021-45046
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r vulnerability -t unified_json -x vulnerability_names=CVE-2021-45046
       - name: Full Test (inventory report product level unifed xlsx)
         run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r inventory -t unified_xlsx
+      - name: Full Test (alerts asyncr report)
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r alerts -t binary -c True     
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1

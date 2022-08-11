@@ -112,7 +112,7 @@ optional arguments:
                         Report Type to produce
   -t {unified_json,unified_xlsx,binary(i.e., Excel or PDF),json}, --outputType 
                         Type of output
-  -s {project,product}, --ReportScope {project,product}
+  -s {project,product}, --ReportScope 
                         Scope of report
   -a WS_URL, --wsUrl WS_URL
                         WS URL
