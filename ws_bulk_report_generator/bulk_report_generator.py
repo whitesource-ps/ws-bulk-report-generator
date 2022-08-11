@@ -135,11 +135,12 @@ def init():
     args.is_binary = True if args.output_type == BINARY else False
     args.write_mode = 'bw' if args.is_binary else 'w'
     args.reports_error = []
-    
+
     async_list = ['inventory', 'vulnerability', 'alerts', 'request_history']
     if args.asyncr and args.report not in async_list:
         logger.error(f"asynchronous report mode is only supported for {async_list}")
         exit()
+
 
 def get_reports_scopes() -> List[dict]:
     orgs = list()
@@ -358,7 +359,7 @@ def generate_reports(report_scopes: list):
 
         output = args.report_method(report_desc['ws_conn'],
                                     token=(report_desc['token'], args.report_scope_type),
-                                    args=args.asyncr,
+                                    asyncr=args.asyncr,
                                     report=args.is_binary,
                                     **args.extra_report_args_d)
         if isinstance(output, dict):
@@ -390,7 +391,7 @@ def generate_reports(report_scopes: list):
     global PROJECT_PARALLELISM_LEVEL
     if args.asyncr:
         PROJECT_PARALLELISM_LEVEL = 1
-
+        
     with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
         thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
 

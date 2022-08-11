@@ -20,7 +20,7 @@ CLI Tool to generate reports on multiple products or projects.
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
 2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -o <OUTPUT_PATH>`
->* *Note:  If installing packages as a non-root user, be sure to include the path to the executables within the Operating System paths.* 
+>* *Note:  If installing packages as a non-root user, be sure to include the path to the executables within the Operating System paths.*
 
 ## Examples:
 Generate Due Diligence Reports (file per product) on all the products within organization in JSON format:  
@@ -41,6 +41,7 @@ Generate Risk Reports (PDF format) on all products (file per product) within org
 Search for log4j 3 recent vulnerabilities in the entire organization and get output in a single unified JSON:  
 `ws_bulk_report_generator -a di.whitesourcesoftware.com -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r vulnerability -t unified_json -x vulnerability_names="CVE-2021-45046,CVE-2021-44228,CVE-2021-4104"`  
 * *Note: The output produces only if the specified CVEs were discovered.*
+
 ---
 
 Generate Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization:  
@@ -52,6 +53,7 @@ Generate Security Alerts report and get a unified JSON on all the organizations 
 `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r inventory -t unified_json -y globalOrganization`
 
 ---
+
 Generate Vulnerability report and get a unified Excel report on 2 specific products in the organization (-s project means the API calls run on the project level behind the scenes, used when timeouts in the API response):  
 `ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -o <OUTPUT_PATH> -r vulnerability -t unified_xlsx -i "<PRODCUCT_TOKEN_1> , <PRODCUCT_TOKEN_2> -s project"`
 
@@ -88,6 +90,7 @@ Generate Inventory report using asynchronous API calls in Excel format:
 `ws_bulk_report_generator -u <USER_KEY>  -k <ORG_TOKEN> -o <OUTPUT_PATH> -r inventory -t binary -c True`
 
 <br/>  
+
 # Full Usage:
 ```shell
 usage: ws_bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organization,globalOrganization}] -r
@@ -104,9 +107,10 @@ optional arguments:
                         WS Token(s) (Comma Separated)
   -y {organization,globalOrganization}, --token_type {organization,globalOrganization}
                         WS Token Type
-  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}, --report {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history}
+  -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at
+               tributes,attribution,effective_licenses,bugs,request_history}, --report 
                         Report Type to produce
-  -t {unified_json,unified_xlsx,binary(i.e., Excel or PDF),json}, --outputType
+  -t {unified_json,unified_xlsx,binary(i.e., Excel or PDF),json}, --outputType 
                         Type of output
   -s {project,product}, --ReportScope {project,product}
                         Scope of report
@@ -121,5 +125,5 @@ optional arguments:
   -e EXC_TOKENS, --excludedTokens EXC_TOKENS
                         Excluded token (Default: None)
   -c ASYNCR, --asynchronousCalls ASYNCR
-                        Asynchronous API (Default: False)+
+                        Asynchronous API (Default: False)
 ```
