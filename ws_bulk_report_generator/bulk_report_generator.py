@@ -60,9 +60,29 @@ def parse_args():
     parser.add_argument('-x', '--extraReportArguments', help="Extra arguments (key=value) to pass the report", dest='extra_report_args', type=str)
     parser.add_argument('-i', '--includedTokens', help="Included token (Default: All)", dest='inc_tokens', default=[])
     parser.add_argument('-e', '--excludedTokens', help="Excluded token (Default: None)", dest='exc_tokens', default=[])
+    parser.add_argument('-c', '--asynchronousCalls', help="Asynchronous API (Default: False)", dest='asyncr', default=False, type=str2bool)
 
     return parser.parse_args()
 
+def str2bool(s):
+    if isinstance(s, str):
+        return strtobool(s)
+    return bool(s)
+
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 def init():
     def get_extra_report_args(extra_report_args: str) -> dict:
@@ -115,8 +135,11 @@ def init():
     args.is_binary = True if args.output_type == BINARY else False
     args.write_mode = 'bw' if args.is_binary else 'w'
     args.reports_error = []
-        
-
+    
+    async_list = ['inventory', 'vulnerability', 'alerts', 'request_history']
+    if args.asyncr and args.report not in async_list:
+        logger.error(f"asynchronous report mode is only supported for {async_list}")
+        exit()
 
 def get_reports_scopes() -> List[dict]:
     orgs = list()
@@ -125,7 +148,8 @@ def get_reports_scopes() -> List[dict]:
         for args.ws_conn in args.ws_conn_list:                               # Refactored this for debugging purposes
             orgs.append(args.ws_conn.get_organization_details())
     else:
-        orgs.append(args.ws_conn_list[0].get_organizations())
+        orgs.extend(args.ws_conn_list[0].get_organizations())
+        args.ws_conn = args.ws_conn_list[0]
         logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
 
     scopes, _ = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
@@ -193,7 +217,12 @@ def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
             scopes = pre_scopes
     else:
         try:
-            scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
+            if args.extra_report_args_d.get('plugin'):
+                if strtobool(args.extra_report_args_d.get('plugin')):
+                    scopes = org_conn.get_scopes(scope_type=ws_constants.ScopeTypes.ORGANIZATION)
+                    args.report_scope_type = ws_constants.ScopeTypes.ORGANIZATION
+            else:
+                scopes = org_conn.get_scopes(scope_type=args.report_scope_type, include_prod_proj_names=False)
         except ws_errors.WsSdkServerInactiveOrg:
             logger.warning(f"Organization: '{org['name']}' is disabled and will be skipped")
 
@@ -329,15 +358,38 @@ def generate_reports(report_scopes: list):
 
         output = args.report_method(report_desc['ws_conn'],
                                     token=(report_desc['token'], args.report_scope_type),
+                                    args=args.asyncr,
                                     report=args.is_binary,
                                     **args.extra_report_args_d)
+        if isinstance(output, dict):
+            for k, v in output.items():
+                if 'asyncReport' in k:
+                    handle_async_reports_names(output, report_desc)
+                elif 'Failed' in k:
+                    return
+        else:
+            write_report(output, report_desc)
 
-        report = output if args.is_binary else json.dumps(output)
-        if report != '[]':
+    def handle_async_reports_names(output, report_desc):
+        for key, value in output.items():
+            line = report_desc['type'] + '_' + key.split("asyncReport: ", 1)[1]
+            index = line.find('.')
+            name = line[:index] + f"_org_{report_desc['org_name']}" + line[index:]
+            report_desc['report_full_name'] = os.path.join(args.dir, name)
+            output = value
+            write_report(output, report_desc)
+
+    def write_report(output, report_desc):
+        if output:
             logger.debug(f"Saving report in: {report_desc['report_full_name']}")
             f = open(report_desc['report_full_name'], args.write_mode)
+            report = output if args.is_binary else json.dumps(output)
             f.write(report)
             f.close()
+    
+    global PROJECT_PARALLELISM_LEVEL
+    if args.asyncr:
+        PROJECT_PARALLELISM_LEVEL = 1
 
     with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
         thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
