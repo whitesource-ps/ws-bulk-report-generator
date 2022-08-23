@@ -74,7 +74,7 @@ jobs:
       - name: Full Test (inventory report product level unifed xlsx)
         run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -s product -r inventory -t unified_xlsx
       - name: Full Test (alerts asyncr report)
-        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r alerts -t binary -c True     
+        run: ${{ env.TOOL_NAME }} -u ${{ secrets.WS_USER_KEY }} -k ${{ secrets.WS_ORG_TOKEN }} -r inventory -t binary -c True     
       - name: Create Release
         if: startsWith(github.ref, 'refs/tags/v')
         uses: ncipollo/release-action@v1
