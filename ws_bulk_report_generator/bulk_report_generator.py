@@ -31,7 +31,7 @@ sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
 logger.propagate = False
 
-PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "1"))
+PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
 JSON = 'json'
 BINARY = 'binary'

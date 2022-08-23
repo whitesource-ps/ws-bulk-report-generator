@@ -2,11 +2,11 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-yellowgreen.svg)](https://opensource.org/licenses/Apache-2.0)
 [![CI](https://github.com/whitesource-ps/ws-bulk-report-generator/actions/workflows/ci.yml/badge.svg)](https://github.com/whitesource-ps/ws-bulk-report-generator/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/ws-bulk-report-generator?style=plastic)](https://pypi.org/project/ws-bulk-report-generator/)
-# [WhiteSource Bulk Report Generator](https://github.com/whitesource-ps/ws-bulk-report-generator)
+# [Mend Bulk Report Generator](https://github.com/whitesource-ps/ws-bulk-report-generator)
 CLI Tool to generate reports on multiple products or projects.
 * The tool allows including and excluding scopes by stating their tokens.
-* Report scope (`-s, --ReportScope`) determines whether reports will be run on projects or products.
-* If Included scopes (via `-i, --includedTokens`) is not specified, the tool will run reports on **all** scopes.
+* Report scope (`-s, --ReportScope`) determines whether reports run on projects or products.
+* If included scopes (via `-i, --includedTokens`) are not specified, the tool runs reports on **all** scopes.
 * Report data exported by default in binary format (i.e., Excel or PDF) or JSON.
 * Recommended using -o parameter for specifying output-dir. Otherwise, the output stored in the running dir (which is pip install cmd work with, and it depends on your OS)
 
@@ -20,20 +20,20 @@ CLI Tool to generate reports on multiple products or projects.
 ## Installation and Execution by pulling package from PyPi:
 1. Execute `pip install ws-bulk-report-generator`
 2. Run report: `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -r <REPORT_NAME> -o <OUTPUT_PATH>`
->* *Note:  If installing packages as a non-root user, be sure to include the path to the executables within the Operating System paths.*
+>* *Note:  If installing packages as a non-root user, insure to include the path to the executables within the Operating System paths.*
 
 ## Examples:
-Generate Due Diligence Reports (file per product) on all the products within organization in JSON format:  
+Generate Due Diligence Reports (file per product) on all products within an organization in JSON format:  
 `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r due_diligence -t json`
 
 ---
 
-Generate Due Diligence Reports (file per project) on all the projects within organization in JSON format:  
+Generate Due Diligence Reports (file per project) on all projects within an organization in JSON format:  
 `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -s project -r due_diligence -t json`
 
 ---
 
-Generate Risk Reports (PDF format) on all products (file per product) within organization:  
+Generate Risk Reports (PDF format) on all products (file per product) within an organization:  
 `ws_bulk_report_generator -a app-eu -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r risk`
 
 ---
@@ -44,12 +44,12 @@ Search for log4j 3 recent vulnerabilities in the entire organization and get out
 
 ---
 
-Generate Inventory report filtered on 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON on all the organization:  
+Generate Inventory report filtered by 'libwebp-dev_0.6.1-2_amd64.deb' and get a unified JSON for the entire organization:  
 `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r inventory -t unified_json -x lib_name=libwebp-dev_0.6.1-2_amd64.deb`
 
 ---
 
-Generate Security Alerts report and get a unified JSON on all the organizations within a Global organization (Note: user must be defined in all the organizations):  
+Generate Security Alerts report and get a unified JSON for all organizations within a Global organization (Note: user must be defined in each organization):  
 `ws_bulk_report_generator -u <USER_KEY> -k <ORG_TOKEN> -o <OUTPUT_PATH> -r inventory -t unified_json -y globalOrganization`
 
 ---
@@ -97,7 +97,7 @@ usage: ws_bulk_report_generator [-h] -u WS_USER_KEY -k WS_TOKEN [-y {organizatio
                                 {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,attributes,attribution,effective_licenses,bugs,request_history(-x plugin=true)}
                                 [-t {unified_json,unified_xlsx,binary,json}] [-s {project,product}] [-a WS_URL] [-o DIR] [-x EXTRA_REPORT_ARGS] [-i INC_TOKENS] [-e EXC_TOKENS] [-c {True,False}]
 
-WhiteSource Bulk Reports Generator
+Mend Bulk Reports Generator
 
 optional arguments:
   -h, --help            show this help message and exit
