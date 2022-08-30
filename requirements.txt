@@ -1,4 +1,4 @@
-ws-sdk==22.4.8.1
+ws-sdk==22.8.4.2
 DateTime==4.5
 requests==2.27.1
 XlsxWriter==3.0.3
