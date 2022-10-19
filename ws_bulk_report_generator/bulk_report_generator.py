@@ -2,6 +2,8 @@ import argparse
 import concurrent
 import json
 import logging
+import re
+from multiprocessing.sharedctypes import Value
 import os
 from concurrent.futures import ThreadPoolExecutor
 from copy import copy
@@ -11,7 +13,7 @@ from typing import Tuple, List
 
 import xlsxwriter
 from ws_sdk import WS, ws_constants, ws_errors
-
+from ws_sdk.ws_utilities import convert_dict_list_to_dict
 from ws_bulk_report_generator._version import __tool_name__, __version__, __description__
 
 is_debug = logging.DEBUG if bool(os.environ.get("DEBUG", 0)) else logging.INFO
@@ -30,6 +32,8 @@ logger.addHandler(s_handler)
 sdk_logger.addHandler(s_handler)
 sdk_logger.propagate = False
 logger.propagate = False
+invalid_chars = ws_constants.INVALID_FS_CHARS
+invalid_chars[invalid_chars.index('"')] = '\\"'
 
 PROJECT_PARALLELISM_LEVEL = int(os.environ.get("PROJECT_PARALLELISM_LEVEL", "10"))
 conf = args = None
@@ -37,15 +41,16 @@ JSON = 'json'
 BINARY = 'binary'
 UNIFIED_JSON = "unified_json"
 UNIFIED_XLSX = "unified_xlsx"
-UNIFIED = [UNIFIED_JSON, UNIFIED_XLSX]
+UNIFIED_XLSX_PER_SHEET = "xlsx_org_per_sheet"
+UNIFIED = [UNIFIED_JSON, UNIFIED_XLSX, UNIFIED_XLSX_PER_SHEET]
 ALL_OUTPUT_TYPES = UNIFIED + [BINARY, JSON]
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__description__)
     parser.add_argument('-u', '--userKey', help="WS User Key", dest='ws_user_key', type=str, required=True)
-    parser.add_argument('-k', '--token', help="WS Token", dest='ws_token', type=str, required=True)
-    parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=None)
+    parser.add_argument('-k', '--token', help="WS Token(s) (Comma Separated)", dest='ws_token', type=str)
+    parser.add_argument('-y', '--token_type', help="WS Token Type", dest='ws_token_type', choices=[ws_constants.ScopeTypes.ORGANIZATION, ws_constants.ScopeTypes.GLOBAL], type=str, default=ws_constants.ScopeTypes.ORGANIZATION)
     parser.add_argument('-r', '--report', help="Report Type to produce", type=str, choices=WS.get_report_types(), dest='report', required=True)
     parser.add_argument('-t', '--outputType', help="Type of output", choices=ALL_OUTPUT_TYPES, dest='output_type', default=BINARY)
     parser.add_argument('-s', '--ReportScope', help="Scope of report", type=str, choices=[ws_constants.ScopeTypes.PROJECT, ws_constants.ScopeTypes.PRODUCT], dest='report_scope_type', default=ws_constants.ScopeTypes.PRODUCT)
@@ -58,6 +63,25 @@ def parse_args():
 
     return parser.parse_args()
 
+def str2bool(s):
+    if isinstance(s, str):
+        return strtobool(s)
+    return bool(s)
+
+def strtobool(val):
+    """Convert a string representation of truth to true (1) or false (0).
+
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'; false values
+    are 'n', 'no', 'f', 'false', 'off', and '0'.  Raises ValueError if
+    'val' is anything else.
+    """
+    val = val.lower()
+    if val in ('y', 'yes', 't', 'true', 'on', '1'):
+        return 1
+    elif val in ('n', 'no', 'f', 'false', 'off', '0'):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))
 
 def str2bool(s):
     if isinstance(s, str):
@@ -101,18 +125,24 @@ def init():
         return ret
 
     global conf, args
-    if args.ws_token_type is None:
-        # args.ws_token_type = WS.discover_token_type(user_key=args.ws_user_key, token=args.ws_user_key)    # TBD
-        args.ws_token_type = ws_constants.ScopeTypes.ORGANIZATION
+    args.ws_token = args.ws_token.split(",")
+        
+    if len(args.ws_token) > 1 and args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
+        logger.error(f"Using multiple global organization tokens is not supported")
+        SystemExit()
+    
 
-    args.ws_conn = WS(url=args.ws_url,
-                      user_key=args.ws_user_key,
-                      token=args.ws_token,
-                      token_type=args.ws_token_type,
-                      tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
-                      timeout=3600)
+    # This creates a WS Object per token that we have. That way we can run more than one request.
+    args.ws_conn_list = [WS(url=args.ws_url,
+                            user_key=args.ws_user_key,
+                            token=con_token,
+                            token_type=args.ws_token_type,
+                            tool_details=(f"ps-{__tool_name__.replace('_', '-')}", __version__),
+                            timeout=3600) for con_token in args.ws_token]
+
 
     args.report_method = f"get_{args.report}"
+    
     try:
         args.report_method = getattr(WS, args.report_method)
     except AttributeError:
@@ -134,16 +164,21 @@ def init():
 
 
 def get_reports_scopes() -> List[dict]:
-    if args.ws_token_type == ws_constants.ScopeTypes.GLOBAL:
-        orgs = args.ws_conn.get_organizations()
-        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token}'")
+    orgs = list()
+
+    if args.ws_token_type != ws_constants.ScopeTypes.GLOBAL:
+        for args.ws_conn in args.ws_conn_list:                               # Refactored this for debugging purposes
+            orgs.append(args.ws_conn.get_organization_details())
     else:
-        orgs = [args.ws_conn.get_organization_details()]
-    scopes, errors = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
+        orgs.extend(args.ws_conn_list[0].get_organizations())
+        args.ws_conn = args.ws_conn_list[0]
+        logger.info(f"Found: {len(orgs)} Organizations under Global Organization token: '{args.ws_token[0]}'")
+
+    scopes, _ = generic_thread_pool_m(orgs, get_reports_scopes_from_org_w)
     if args.exc_tokens:
         scopes = [s for s in scopes if s['token'] not in args.exc_tokens]
 
-    logger.info(f"Found {len(scopes)} Scopes on")
+    logger.info(f"Found {len(scopes)} Scopes")
 
     return scopes
 
@@ -169,26 +204,21 @@ def generic_thread_pool_m(ent_l: list, worker: callable) -> Tuple[list, list]:
 
 
 def get_reports_scopes_from_org_w(org: dict) -> List[dict]:
-    def replace_invalid_chars(directory: str) -> str:
-        for char in ws_constants.INVALID_FS_CHARS:
-            directory = directory.replace(char, "_")
 
+    def replace_invalid_chars(directory: str) -> str:           # Changed this from O(N) to O(1)
+        regex = f'[{"".join(invalid_chars)}]+'
+        subst = "_"
+        directory = re.sub(regex, subst, directory)
         return directory
 
     def prep_scope(report_scopes: list, o: dict):
         for s in report_scopes:
+            s['ws_conn'] = org_conn
+            s['org_name'] = o['name']
             args.report_extension = JSON if args.output_type.endswith(JSON) else args.report_method(WS, ws_constants.ReportsMetaData.REPORT_BIN_TYPE)
             report_name = f"{s['name']}_{s.get('productName')}" if s['type'] == ws_constants.PROJECT else s['name']
             filename = f"{s['type']}_{replace_invalid_chars(report_name)}_{args.report}_org_{o['name']}.{args.report_extension}"
             s['report_full_name'] = os.path.join(args.dir, filename)
-            s['ws_conn'] = org_conn
-            s['org_name'] = o['name']
-
-    def replace_invalid_chars(directory: str) -> str:
-        for char in ws_constants.INVALID_FS_CHARS:
-            directory = directory.replace(char, "_")
-
-        return directory
 
     global args
     org_conn = copy(args.ws_conn)
@@ -248,7 +278,10 @@ def generate_xlsx(output, full_path) -> List[dict]:
         for c in col_names:
             cell_val = d.get(c)
             if isinstance(cell_val, (list, dict)):
-                cell_val = json.dumps(cell_val)
+                if c != "topFix":
+                    cell_val = json.dumps(cell_val)
+                else:
+                    cell_val = cell_val['fixResolution']
             row_data_l.append(cell_val)
 
         return row_data_l
@@ -259,29 +292,74 @@ def generate_xlsx(output, full_path) -> List[dict]:
             col_names = o[0].keys()
 
         for c_num, c_name in enumerate(col_names):
-            worksheet.write(0, c_num, c_name, cell_format)
+            for current_worksheet in worksheets:
+                current_worksheet.write(0, c_num, c_name, cell_format)
 
         return col_names
+    
+    def generate_flat_workbook():
+        global worksheets, cell_format
+        worksheets = list()
+        worksheet_index = total_rows = rows = 0
+        with xlsxwriter.Workbook(full_path, options=options) as workbook:
+                worksheets.append(workbook.add_worksheet())
+                cell_format = workbook.add_format({'bold': True, 'italic': False})
+                column_names = generate_table_labels(output)
+
+                for row_data in output:
+                    if rows > 1048575:
+                        worksheets.append(workbook.add_worksheet())
+                        worksheet_index += 1
+                        total_rows += rows
+                        rows = 0
+                    rows += 1
+                    worksheets[worksheet_index].write_row(rows, 0, generate_row_data(column_names, row_data))
+                
+                total_rows += rows
+                logger.debug(f"Total number of Excel rows: {total_rows}")
+
+    
+    def generate_workbook_org_per_worksheet():
+        global worksheets, cell_format
+        starting_row_num = 0
+        worksheets = list()
+        worksheet_names = dict()
+
+        with xlsxwriter.Workbook(full_path, options=options) as workbook:
+            
+            for key in convert_dict_list_to_dict(lst=output, key_desc="org_name").keys():    #This is technically O(2N) due to convert method using a for loop -> Simplifies to O(N)
+                worksheet_names[key[:31]] = starting_row_num
+                worksheets.append(workbook.add_worksheet(key[:31]))
+                
+            cell_format = workbook.add_format({'bold': True, 'italic': False})
+            column_names = generate_table_labels(output)
+
+            for row_data in output:             #This is now O(N) due to the fact that we don't have a nested if inside of the for loop
+                current_worksheet = workbook.get_worksheet_by_name(row_data['org_name'][:31])
+                worksheet_names[current_worksheet.get_name()] += 1
+                current_worksheet.write_row(worksheet_names[current_worksheet.get_name()], 0, generate_row_data(column_names, row_data))
+                        
+            logger.debug(f"Total number of Excel rows: {sum(worksheet_names.values())}")
 
     options = None
-    with xlsxwriter.Workbook(full_path, options=options) as workbook:
-        worksheet = workbook.add_worksheet()
-        cell_format = workbook.add_format({'bold': True, 'italic': False})
-        column_names = generate_table_labels(output)
-
-        for row_num, row_data in enumerate(output):
-            worksheet.write_row(row_num + 1, 0, generate_row_data(column_names, row_data))
-
-        logger.debug(f"Total number of Excel rows: {row_num}")
+    
+    if args.output_type == UNIFIED_XLSX_PER_SHEET:
+        generate_workbook_org_per_worksheet()
+    else:
+        generate_flat_workbook()
 
 
 def write_unified_file(output: list):
-    report_name = f"{args.ws_conn.get_name()} - {args.report} report"
+    if len(args.ws_token) > 1:
+        report_name = f"Multiple Org - {args.report} report"
+    else: 
+        report_name = f"{args.ws_conn.get_name()} - {args.report} report" 
+    
     filename = f"{report_name}.{args.report_extension}"
     full_path = os.path.join(args.dir, filename)
 
     start_time = datetime.now()
-    if args.output_type == UNIFIED_XLSX:
+    if args.output_type == UNIFIED_XLSX or args.output_type == UNIFIED_XLSX_PER_SHEET:
         logger.info("Converting output to Excel")
         generate_xlsx(output, full_path)
     else:
@@ -330,10 +408,11 @@ def generate_reports(report_scopes: list):
             report = output if args.is_binary else json.dumps(output)
             f.write(report)
             f.close()
-
+    
     global PROJECT_PARALLELISM_LEVEL
     if args.asyncr:
         PROJECT_PARALLELISM_LEVEL = 1
+        
     with ThreadPool(processes=PROJECT_PARALLELISM_LEVEL) as thread_pool:
         thread_pool.starmap(generate_report_w, [(comp, args) for comp in report_scopes])
 
@@ -349,12 +428,13 @@ def main():
     global args, conf
     start_time = datetime.now()
     args = parse_args()
-    logger.info(f"Start running {__description__} Version {__version__} on token {args.ws_token}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
+    logger.info(f"Start running {__description__} Version {__version__} on token {', '.join(args.ws_token.split(', '))}. Parallelism level: {PROJECT_PARALLELISM_LEVEL}")
     init()
+    
     report_scopes = get_reports_scopes()
 
     if args.output_type in UNIFIED:
-        ret, errors = generate_unified_reports(report_scopes)
+        ret, _ = generate_unified_reports(report_scopes)
         handle_unified_report(ret)
     else:
         generate_reports(report_scopes)

@@ -104,8 +104,8 @@ optional arguments:
   -u WS_USER_KEY, --userKey WS_USER_KEY
                         WS User Key
   -k WS_TOKEN, --token WS_TOKEN
-                        WS Token
-  -y {organization,globalOrganization}, --token_type 
+                        WS Token(s) (Comma Separated)
+  -y {organization,globalOrganization}, --token_type {organization,globalOrganization}
                         WS Token Type
   -r {alerts,ignored_alerts,resolved_alerts,inventory,lib_dependencies,vulnerability,container_vulnerability,source_files,source_file_inventory,in_house_libraries,in_house,risk,library_location,license_compatibility,due_diligence,at
                tributes,attribution,effective_licenses,bugs,request_history}, --report 
