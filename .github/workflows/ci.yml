@@ -96,23 +96,4 @@ jobs:
           skip_existing: true
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-      - name: Publish to Confluence - Internal
-        if: env.RELEASE == 'true'
-        uses: cupcakearmy/confluence-markdown-sync@v1
-        with:
-          from: README.md
-          to: 2141159441
-          cloud: whitesource
-          user: ${{ secrets.CONFLUENCE_USER }}
-          token: ${{ secrets.CONFLUENCE_TOKEN }}
-      - name: Publish to Confluence - Public
-        if: env.RELEASE == 'true'
-        uses: cupcakearmy/confluence-markdown-sync@v1
-        with:
-          from: README.md
-          to: 2319843637
-          cloud: whitesource
-          user: ${{ secrets.CONFLUENCE_USER }}
-          token: ${{ secrets.CONFLUENCE_TOKEN }}
-
 
