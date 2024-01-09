@@ -1,5 +1,4 @@
 ws-sdk==23.12.2
-#22.8.4.2
 DateTime==4.9
 requests==2.31.0
 XlsxWriter==3.0.3
