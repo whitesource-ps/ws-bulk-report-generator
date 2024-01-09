@@ -8,8 +8,6 @@ on:
       - '!whitesource/migrate-configuration**'
     tags:
       - '*'
-  schedule:
-    - cron: '0 4 * * *'
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
